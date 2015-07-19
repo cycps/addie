@@ -101,7 +101,9 @@ func index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	xpid := ps.ByName("xpid")
-	fmt.Fprintf(w, "designing %s ...\n", xpid)
+	log.Printf("/design/%s", xpid)
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, " { \"result\": \"ok\", \"created\": [ { \"name\": \"abby\", \"sys\": \"\"} ] } ")
 }
 
 func handleRequests() {
