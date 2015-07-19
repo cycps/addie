@@ -6,7 +6,7 @@ The API for designing [Cypress](https://cypress.deterlab.net) experiments.
 ## Experiment Update [/design/{xpid}]
 Use this endpoint to perform vairous design tasks on the experiment with the id *xpid*. See the docs for the request types associated with this endpoing for their semantics
 + Parameters
-  + xpid (required, `test`)
+  + xpid (required, `system47`)
 
 ### Experiment Update [POST]
 Use this endpoint to update an experiment with the id *xpid*. The body of the request must contain an experiment element. If the provided element already exists it is updated. If the provided element does not exist it is created.
@@ -20,7 +20,7 @@ The response returns a list of the elements that have been updated in a list who
           "Computers": [
             {
               "Name": "abby",
-              "Sys": "",
+              "Sys": "system47",
               "Os": "Ubuntu1504-64-STD",
               "Start_script": "cook_muffins.sh"
             }
@@ -33,10 +33,9 @@ The response returns a list of the elements that have been updated in a list who
           "Result": "ok",
           "Details": "",
           "Created": [
-            {"Name": "abby", "Sys": ""}
+            {"Name": "abby", "Sys": "system47"}
           ]
         }
-
 
 + Request Update the computer abby with a different OS (application/json)
 
@@ -44,7 +43,7 @@ The response returns a list of the elements that have been updated in a list who
           "Computers": [
             {
               "Name": "abby",
-              "Sys": "",
+              "Sys": "system47",
               "Os": "Debian-Sid",
               "Start_script": "cook_muffins.sh"
             }
@@ -56,7 +55,7 @@ The response returns a list of the elements that have been updated in a list who
         {
           "Result": "ok",
           "Updated": [
-            {"Name": "abby", "Sys": ""}
+            {"Name": "abby", "Sys": "system47"}
           ]
         }
 
@@ -84,3 +83,4 @@ The response returns a list of the elements that have been updated in a list who
             }
           ]
         }
+

@@ -164,10 +164,39 @@ func updateResponse(w http.ResponseWriter, r *AggUpdateResult) error {
 }
 
 func dbComputerUpdate(c addie.Computer) error {
+	q := fmt.Sprintf(
+		"UPDATE computers SET os = '%s', start_script = '%s'"+
+			"WHERE name = '%s' AND sys = '%s';",
+		c.OS, c.Start_script, c.Name, c.Sys)
+
+	_, err := db.Query(q)
+	if err != nil {
+		log.Println(err)
+		return errors.New("computer update failed")
+	}
 	return nil
 }
 
 func dbComputerInsert(c addie.Computer) error {
+
+	q0 := fmt.Sprintf("INSERT INTO network_hosts VALUES ('%s', '%s');",
+		c.Name, c.Sys)
+
+	q1 := fmt.Sprintf("INSERT INTO computers VALUES ('%s', '%s', '%s', '%s');",
+		c.Name, c.Sys, c.OS, c.Start_script)
+
+	_, err := db.Query(q0)
+	if err != nil {
+		log.Println(err)
+		return errors.New("network_hosts insert failed")
+
+	}
+	_, err = db.Query(q1)
+	if err != nil {
+		log.Println(err)
+		return errors.New("computers insert failed")
+	}
+
 	return nil
 }
 
@@ -183,7 +212,11 @@ func updateComputer(c addie.Computer, r *AggUpdateResult) error {
 			fur.Msg = "Non-existant system"
 			r.Failed = append(r.Failed, fur)
 		} else {
-			dbComputerInsert(c)
+			err := dbComputerInsert(c)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
 			r.Created = append(r.Created, UpdateResult{c.Name, c.Sys})
 		}
 	} else {
@@ -199,15 +232,14 @@ func doUpdate(u *UpdateMsg) (*AggUpdateResult, error) {
 
 	r := new(AggUpdateResult)
 	r.Result = "ok"
-	/*
-		r.Result = "ok"
-		r.Details = ""
-		r.Created = make([]UpdateResult, 1)
-		r.Created[0] = UpdateResult{"abby", "sys"}
-	*/
 
 	for _, c := range u.Computers {
-		updateComputer(c, r)
+		err := updateComputer(c, r)
+		if err != nil {
+			r.Result = "failed"
+			log.Println(err)
+			break
+		}
 	}
 
 	if len(r.Failed) > 0 {
@@ -221,6 +253,7 @@ func doUpdate(u *UpdateMsg) (*AggUpdateResult, error) {
 
 func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	xpid := ps.ByName("xpid")
+	root.Name = xpid
 	log.Printf("/design/%s", xpid)
 	w.Header().Set("Content-Type", "application/json")
 
@@ -228,7 +261,8 @@ func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	in, err := unpackUpdateMsg(r)
 	if err != nil {
 		log.Println(err)
-		writeUpdateResult(w, AggUpdateResult{"failed", "malformed request", nil, nil, nil, nil})
+		writeUpdateResult(w, AggUpdateResult{"failed", "malformed request",
+			nil, nil, nil, nil})
 		return
 	}
 
@@ -236,7 +270,8 @@ func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	out, err := doUpdate(in)
 	if err != nil {
 		log.Println(err)
-		writeUpdateResult(w, AggUpdateResult{"failed", "persistence error", nil, nil, nil, nil})
+		writeUpdateResult(w, AggUpdateResult{"failed", "persistence error",
+			nil, nil, nil, nil})
 	}
 
 	//send response
