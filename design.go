@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
@@ -99,10 +101,38 @@ func index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	fmt.Fprint(w, "Do you know the muffin man?\n")
 }
 
+type UpdateMsg struct {
+	Computers []Computer
+}
+
+type Computer struct {
+	Name         string
+	Sys          string
+	OS           string
+	Start_script string
+}
+
 func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	xpid := ps.ByName("xpid")
 	log.Printf("/design/%s", xpid)
 	w.Header().Set("Content-Type", "application/json")
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r.Body)
+	content := buf.String()
+
+	log.Println("Unmarshaling message")
+	var msg UpdateMsg
+	err := json.Unmarshal(buf.Bytes(), &msg)
+	if err != nil {
+		log.Println(err)
+	} else {
+		log.Println("unmarshaled:")
+		log.Println(msg)
+	}
+
+	log.Println("body content:")
+	log.Println(content)
 	fmt.Fprintf(w, " { \"result\": \"ok\", \"created\": [ { \"name\": \"abby\", \"sys\": \"\"} ] } ")
 }
 

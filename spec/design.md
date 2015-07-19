@@ -17,11 +17,11 @@ The response returns a list of the elements that have been updated in a list who
 + Request Update an experiment with a new computer (application/json)
 
         { 
-          "elements": [
-            "computer": {
+          "computers": [
+            {
               "name": "abby",
               "sys": "",
-              "os": "Ubuntu1504-64-STD"
+              "os": "Ubuntu1504-64-STD",
               "start_script": "cook_muffins.sh"
             }
           ]
@@ -36,11 +36,13 @@ The response returns a list of the elements that have been updated in a list who
           ]
         }
 
+<!--
+
 + Request Update the computer abby with a different OS (application/json)
 
         { 
-          "elements": [
-            "computer": {
+          "computers": [
+            {
               "name": "abby",
               "sys": "",
               "os": "Debian-Sid"
@@ -60,8 +62,8 @@ The response returns a list of the elements that have been updated in a list who
 + Request Update the computer abby in a non-existant system (application/json)
 
         { 
-          "elements": [
-            "computer": {
+          "computers": [
+            {
               "name": "abby",
               "sys": "fake.system",
               "os": "Debian-Sid"
@@ -81,3 +83,4 @@ The response returns a list of the elements that have been updated in a list who
             }
           ]
         }
+-->
