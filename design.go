@@ -1,7 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	_ "github.com/lib/pq"
 	"io"
 	"log"
 	"net/http"
@@ -28,6 +30,32 @@ func main() {
 	log.SetOutput(io.MultiWriter(f, os.Stdout))
 
 	log.Printf("Cypress Design Automator .... Go!\n")
+	log.Printf("Do you know the muffin man?\n")
+
+	log.Printf("Opening connecton to pgdb\n")
+	db, err := sql.Open("postgres", "postgres://postgres@192.168.1.201/cyp?sslmode=require")
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+
+	err = db.Ping()
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+
+	rows, err := db.Query("SELECT relname, n_live_tup FROM pg_stat_user_tables")
+	defer rows.Close()
+	for rows.Next() {
+		var relname string
+		var n_live_tup int
+		if err := rows.Scan(&relname, &n_live_tup); err != nil {
+			log.Fatal(err)
+			os.Exit(1)
+		}
+		log.Printf("%s {%d}", relname, n_live_tup)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
