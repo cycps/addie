@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/cycps/addie"
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
 	"io"
@@ -15,6 +17,7 @@ import (
 )
 
 var cypdir = os.ExpandEnv("$HOME/.cypress")
+var root addie.System
 var logfile os.File
 var db *sql.DB = nil
 
@@ -34,7 +37,7 @@ func initLogging() {
 	log.SetOutput(io.MultiWriter(logfile, os.Stdout))
 }
 
-func init() {
+func initDesign() {
 	initLogging()
 }
 
@@ -102,14 +105,7 @@ func index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 }
 
 type UpdateMsg struct {
-	Computers []Computer
-}
-
-type Computer struct {
-	Name         string
-	Sys          string
-	OS           string
-	Start_script string
+	Computers []addie.Computer
 }
 
 type UpdateResult struct {
@@ -123,47 +119,101 @@ type AggUpdateResult struct {
 	Created []UpdateResult
 }
 
-func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	xpid := ps.ByName("xpid")
-	log.Printf("/design/%s", xpid)
-	w.Header().Set("Content-Type", "application/json")
-
-	//log the message
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(r.Body)
-	content := buf.String()
-	log.Println("body content:")
-	log.Println(content)
-
-	//unpack message
-	log.Println("Unmarshaling message")
-	var msg UpdateMsg
-	err := json.Unmarshal(buf.Bytes(), &msg)
-	if err != nil {
-		log.Println(err)
-		response := AggUpdateResult{"failed", "malformed request", nil}
-		bs, err := json.Marshal(response)
-		if err != nil {
-			log.Println("error marshalling json response")
-			log.Println(err)
-		} else {
-			w.Write(bs)
-		}
-		return
-	}
-	log.Println("unmarshaled:")
-	log.Println(msg)
-
-	//pack and send response
-	response := AggUpdateResult{"ok", "", make([]UpdateResult, 1)}
-	response.Created[0] = UpdateResult{"abby", "sys"}
-	bs, err := json.Marshal(response)
+func writeUpdateResult(w http.ResponseWriter, r AggUpdateResult) {
+	bs, err := json.Marshal(r)
 	if err != nil {
 		log.Println("error marshalling json response")
 		log.Println(err)
 	} else {
 		w.Write(bs)
 	}
+}
+
+func unpackUpdateMsg(r *http.Request) (*UpdateMsg, error) {
+	log.Print("unpacking update message")
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r.Body)
+
+	msg := new(UpdateMsg)
+	err := json.Unmarshal(buf.Bytes(), msg)
+	if err != nil {
+		log.Println(err)
+		return nil, errors.New("unable to unpack update mesage\n" + buf.String())
+	}
+	return msg, nil
+}
+
+func updateResponse(w http.ResponseWriter, r *AggUpdateResult) error {
+	log.Println("writing client response")
+	bs, err := json.Marshal(r)
+	if err != nil {
+		log.Println(err)
+		return errors.New("error marshalling json response")
+	}
+	w.Write(bs)
+	return nil
+}
+
+func dbComputerUpdate(c addie.Computer) error {
+	return nil
+}
+
+func dbComputerInsert(c addie.Computer) error {
+	return nil
+}
+
+func updateComputer(c addie.Computer) error {
+	_c := root.FindComputer(c.Element)
+	if _c == nil {
+		log.Println("Added computer ", c.Element)
+		root.AddComputer(c)
+		dbComputerInsert(c)
+	} else {
+		log.Println("Updated computer ", c.Element)
+		*_c = c
+		dbComputerUpdate(c)
+	}
+	return nil
+}
+
+func doUpdate(u *UpdateMsg) (*AggUpdateResult, error) {
+
+	r := new(AggUpdateResult)
+	r.Result = "ok"
+	r.Details = ""
+	r.Created = make([]UpdateResult, 1)
+	r.Created[0] = UpdateResult{"abby", "sys"}
+
+	for _, c := range u.Computers {
+		updateComputer(c)
+	}
+
+	return r, nil
+}
+
+func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	xpid := ps.ByName("xpid")
+	log.Printf("/design/%s", xpid)
+	w.Header().Set("Content-Type", "application/json")
+
+	//unpack message
+	in, err := unpackUpdateMsg(r)
+	if err != nil {
+		log.Println(err)
+		writeUpdateResult(w, AggUpdateResult{"failed", "malformed request", nil})
+		return
+	}
+
+	//do the update
+	out, err := doUpdate(in)
+	if err != nil {
+		log.Println(err)
+		writeUpdateResult(w, AggUpdateResult{"failed", "persistence error", nil})
+	}
+
+	//send response
+	updateResponse(w, out)
 }
 
 func handleRequests() {
@@ -181,15 +231,18 @@ func handleRequests() {
 func main() {
 
 	defer exit(0)
+	initDesign()
 	catchSignals()
 
 	log.Printf("Cypress Design Automator .... Go!\n")
 	if dbConnect() != nil {
 		exit(1)
 	}
-	if dbStats() != nil {
-		exit(1)
-	}
+	/*
+		if dbStats() != nil {
+			exit(1)
+		}
+	*/
 
 	handleRequests()
 
