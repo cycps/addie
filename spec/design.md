@@ -17,12 +17,12 @@ The response returns a list of the elements that have been updated in a list who
 + Request Update an experiment with a new computer (application/json)
 
         { 
-          "computers": [
+          "Computers": [
             {
-              "name": "abby",
-              "sys": "",
-              "os": "Ubuntu1504-64-STD",
-              "start_script": "cook_muffins.sh"
+              "Name": "abby",
+              "Sys": "",
+              "Os": "Ubuntu1504-64-STD",
+              "Start_script": "cook_muffins.sh"
             }
           ]
         }
@@ -30,9 +30,10 @@ The response returns a list of the elements that have been updated in a list who
 + Response 200 (application/json)
 
         {
-          "result": "ok",
-          "created": [
-            {"name": "abby", "sys": ""}
+          "Result": "ok",
+          "Details": "",
+          "Created": [
+            {"Name": "abby", "Sys": ""}
           ]
         }
 

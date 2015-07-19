@@ -112,28 +112,58 @@ type Computer struct {
 	Start_script string
 }
 
+type UpdateResult struct {
+	Name string
+	Sys  string
+}
+
+type AggUpdateResult struct {
+	Result  string
+	Details string
+	Created []UpdateResult
+}
+
 func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	xpid := ps.ByName("xpid")
 	log.Printf("/design/%s", xpid)
 	w.Header().Set("Content-Type", "application/json")
 
+	//log the message
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(r.Body)
 	content := buf.String()
+	log.Println("body content:")
+	log.Println(content)
 
+	//unpack message
 	log.Println("Unmarshaling message")
 	var msg UpdateMsg
 	err := json.Unmarshal(buf.Bytes(), &msg)
 	if err != nil {
 		log.Println(err)
-	} else {
-		log.Println("unmarshaled:")
-		log.Println(msg)
+		response := AggUpdateResult{"failed", "malformed request", nil}
+		bs, err := json.Marshal(response)
+		if err != nil {
+			log.Println("error marshalling json response")
+			log.Println(err)
+		} else {
+			w.Write(bs)
+		}
+		return
 	}
+	log.Println("unmarshaled:")
+	log.Println(msg)
 
-	log.Println("body content:")
-	log.Println(content)
-	fmt.Fprintf(w, " { \"result\": \"ok\", \"created\": [ { \"name\": \"abby\", \"sys\": \"\"} ] } ")
+	//pack and send response
+	response := AggUpdateResult{"ok", "", make([]UpdateResult, 1)}
+	response.Created[0] = UpdateResult{"abby", "sys"}
+	bs, err := json.Marshal(response)
+	if err != nil {
+		log.Println("error marshalling json response")
+		log.Println(err)
+	} else {
+		w.Write(bs)
+	}
 }
 
 func handleRequests() {
