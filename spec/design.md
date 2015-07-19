@@ -37,16 +37,16 @@ The response returns a list of the elements that have been updated in a list who
           ]
         }
 
-<!--
 
 + Request Update the computer abby with a different OS (application/json)
 
         { 
-          "computers": [
+          "Computers": [
             {
-              "name": "abby",
-              "sys": "",
-              "os": "Debian-Sid"
+              "Name": "abby",
+              "Sys": "",
+              "Os": "Debian-Sid",
+              "Start_script": "cook_muffins.sh"
             }
           ]
         }
@@ -54,20 +54,20 @@ The response returns a list of the elements that have been updated in a list who
 + Response 200 (application/json)
 
         {
-          "result": "ok",
-          "updated": [
-            {"name": "abby", "sys": ""}
+          "Result": "ok",
+          "Updated": [
+            {"Name": "abby", "Sys": ""}
           ]
         }
 
 + Request Update the computer abby in a non-existant system (application/json)
 
         { 
-          "computers": [
+          "Computers": [
             {
-              "name": "abby",
-              "sys": "fake.system",
-              "os": "Debian-Sid"
+              "Name": "abby",
+              "Sys": "fake.system",
+              "Os": "Debian-Sid"
             }
           ]
         }
@@ -75,13 +75,12 @@ The response returns a list of the elements that have been updated in a list who
 + Response 200 (application/json)
 
         {
-          "result": "failed",
-          "updated": [
+          "Result": "failed",
+          "Failed": [
             {
-              "name": "abby", 
-              "sys": "fake.system", 
-              "msg": "The system 'fake.system' does not exist"
+              "Name": "abby", 
+              "Sys": "fake.system", 
+              "Msg": "Non-existant system"
             }
           ]
         }
--->

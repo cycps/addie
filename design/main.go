@@ -113,10 +113,18 @@ type UpdateResult struct {
 	Sys  string
 }
 
+type FailedUpdateResult struct {
+	UpdateResult
+	Msg string
+}
+
 type AggUpdateResult struct {
 	Result  string
 	Details string
 	Created []UpdateResult
+	Updated []UpdateResult
+	Deleted []UpdateResult
+	Failed  []FailedUpdateResult
 }
 
 func writeUpdateResult(w http.ResponseWriter, r AggUpdateResult) {
@@ -163,16 +171,26 @@ func dbComputerInsert(c addie.Computer) error {
 	return nil
 }
 
-func updateComputer(c addie.Computer) error {
+func updateComputer(c addie.Computer, r *AggUpdateResult) error {
 	_c := root.FindComputer(c.Element)
 	if _c == nil {
-		log.Println("Added computer ", c.Element)
-		root.AddComputer(c)
-		dbComputerInsert(c)
+		log.Println("Added computer ", c)
+		__c := root.AddComputer(c)
+		if __c == nil {
+			var fur FailedUpdateResult
+			fur.Name = c.Name
+			fur.Sys = c.Sys
+			fur.Msg = "Non-existant system"
+			r.Failed = append(r.Failed, fur)
+		} else {
+			dbComputerInsert(c)
+			r.Created = append(r.Created, UpdateResult{c.Name, c.Sys})
+		}
 	} else {
-		log.Println("Updated computer ", c.Element)
+		log.Println("Updated computer ", c)
 		*_c = c
 		dbComputerUpdate(c)
+		r.Updated = append(r.Updated, UpdateResult{c.Name, c.Sys})
 	}
 	return nil
 }
@@ -181,13 +199,22 @@ func doUpdate(u *UpdateMsg) (*AggUpdateResult, error) {
 
 	r := new(AggUpdateResult)
 	r.Result = "ok"
-	r.Details = ""
-	r.Created = make([]UpdateResult, 1)
-	r.Created[0] = UpdateResult{"abby", "sys"}
+	/*
+		r.Result = "ok"
+		r.Details = ""
+		r.Created = make([]UpdateResult, 1)
+		r.Created[0] = UpdateResult{"abby", "sys"}
+	*/
 
 	for _, c := range u.Computers {
-		updateComputer(c)
+		updateComputer(c, r)
 	}
+
+	if len(r.Failed) > 0 {
+		r.Result = "failed"
+	}
+
+	log.Println(root)
 
 	return r, nil
 }
@@ -201,7 +228,7 @@ func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	in, err := unpackUpdateMsg(r)
 	if err != nil {
 		log.Println(err)
-		writeUpdateResult(w, AggUpdateResult{"failed", "malformed request", nil})
+		writeUpdateResult(w, AggUpdateResult{"failed", "malformed request", nil, nil, nil, nil})
 		return
 	}
 
@@ -209,7 +236,7 @@ func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	out, err := doUpdate(in)
 	if err != nil {
 		log.Println(err)
-		writeUpdateResult(w, AggUpdateResult{"failed", "persistence error", nil})
+		writeUpdateResult(w, AggUpdateResult{"failed", "persistence error", nil, nil, nil, nil})
 	}
 
 	//send response
