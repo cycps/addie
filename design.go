@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
 	"io"
 	"log"
@@ -94,21 +95,24 @@ func dbStats() error {
 	return err
 }
 
+func index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	fmt.Fprint(w, "Do you know the muffin man?\n")
+}
+
+func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	xpid := ps.ByName("xpid")
+	fmt.Fprintf(w, "designing %s ...\n", xpid)
+}
+
 func handleRequests() {
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		req.ParseForm()
-		log.Printf("%s: %s\n", req.Method, req.URL.Path)
-		for k, p := range req.Form {
-			log.Printf("\t%s = %v\n", k, p)
-		}
-		//fmt.Fprintf(w, "Do you know the muffin man?")
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, " { \"result\": \"ok\", \"created\": [ { \"name\": \"abby\", \"sys\": \"\"} ] } ")
-	})
+	router := httprouter.New()
+	router.POST("/design/:xpid", handleDesign)
+	router.GET("/", index)
+
 	log.Println("listening ...")
-	http.ListenAndServe(":8080", mux)
+	log.Fatal(
+		http.ListenAndServeTLS(":8080", cypdir+"/keys/cert.pem", cypdir+"/keys/key.pem", router))
 
 }
 
