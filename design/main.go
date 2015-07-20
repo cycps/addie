@@ -100,7 +100,8 @@ func dbStats() error {
 	return err
 }
 
-func index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func bakery(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	log.Println("[bakery][" + r.Method + "] hit")
 	fmt.Fprint(w, "Do you know the muffin man?\n")
 }
 
@@ -282,7 +283,8 @@ func handleRequests() {
 
 	router := httprouter.New()
 	router.POST("/design/:xpid", handleDesign)
-	router.GET("/", index)
+	router.GET("/bakery", bakery)
+	router.POST("/bakery", bakery)
 
 	log.Println("listening ...")
 	log.Fatal(
