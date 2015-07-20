@@ -252,7 +252,8 @@ func doUpdate(u *UpdateMsg) (*AggUpdateResult, error) {
 	return r, nil
 }
 
-func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func handleDesignUpdate(w http.ResponseWriter, r *http.Request,
+	ps httprouter.Params) {
 	xpid := ps.ByName("xpid")
 	root.Name = xpid
 	log.Printf("/design/%s", xpid)
@@ -279,10 +280,36 @@ func handleDesign(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 	updateResponse(w, out)
 }
 
+func handleDesignDelete(w http.ResponseWriter, r *http.Request,
+	ps httprouter.Params) {
+	xpid := ps.ByName("xpid")
+	log.Printf("/design/%s/delete", xpid)
+	w.Header().Set("Content-Type", "application/json")
+
+	//TODO this is a thermonuclear baseline
+	var _rt addie.System
+	root = _rt
+	root.Name = xpid
+	q0 := "DELETE FROM computers ;"
+	q1 := "DELETE FROM network_hosts ;"
+
+	db.Query(q0)
+	db.Query(q1)
+
+	//TODO hardcode for test baseline
+	var res AggUpdateResult
+	res.Result = "ok"
+	res.Deleted = append(res.Deleted, UpdateResult{"abby", "system47"})
+
+	updateResponse(w, &res)
+
+}
+
 func handleRequests() {
 
 	router := httprouter.New()
-	router.POST("/design/:xpid", handleDesign)
+	router.POST("/design/:xpid", handleDesignUpdate)
+	router.POST("/design/:xpid/delete", handleDesignDelete)
 	router.GET("/bakery", bakery)
 	router.POST("/bakery", bakery)
 

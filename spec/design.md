@@ -84,3 +84,29 @@ The response returns a list of the elements that have been updated in a list who
           ]
         }
 
+
+## Experiment Delete [/design/{xpid}/delete]
++ Parameters
+  + xpid (required, `system47`)
+
+### Experiment Delete[POST]
++ Request Update an experiment with a new computer (application/json)
+
+        { 
+          "Elements": [
+            {
+              "Name": "abby",
+              "Sys": "system47",
+            }
+          ]
+        }
+
++ Response 200 (application/json)
+
+        {
+          "Result": "ok",
+          "Details": "",
+          "Deleted": [
+            {"Name": "abby", "Sys": "system47"}
+          ]
+        }
