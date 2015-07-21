@@ -76,6 +76,28 @@ func (s *System) DeleteElement(e Element) error {
 		sys.Computers = append(sys.Computers[:idx], sys.Computers[1+idx:]...)
 		return nil
 	}
+	for i, s := range sys.Switches {
+		if s.Name == e.Name {
+			found = true
+			idx = i
+			break
+		}
+	}
+	if found {
+		sys.Switches = append(sys.Switches[:idx], sys.Switches[1+idx:]...)
+		return nil
+	}
+	for i, r := range sys.Routers {
+		if r.Name == e.Name {
+			found = true
+			idx = i
+			break
+		}
+	}
+	if found {
+		sys.Routers = append(sys.Routers[:idx], sys.Routers[1+idx:]...)
+		return nil
+	}
 	return nil
 }
 

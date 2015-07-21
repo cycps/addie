@@ -16,6 +16,33 @@ import (
 	"os/signal"
 )
 
+type UpdateMsg struct {
+	Computers []addie.Computer
+}
+
+type DeleteMsg struct {
+	Elements []addie.Element
+}
+
+type UpdateResult struct {
+	Name string
+	Sys  string
+}
+
+type FailedUpdateResult struct {
+	UpdateResult
+	Msg string
+}
+
+type AggUpdateResult struct {
+	Result  string
+	Details string
+	Created []UpdateResult
+	Updated []UpdateResult
+	Deleted []UpdateResult
+	Failed  []FailedUpdateResult
+}
+
 var cypdir = os.ExpandEnv("$HOME/.cypress")
 var root addie.System
 var logfile os.File
@@ -67,17 +94,20 @@ func catchSignals() {
 
 func dbConnect() error {
 	log.Printf("Opening connecton to pgdb\n")
+
 	var err error
-	db, err = sql.Open("postgres", "postgres://postgres@192.168.1.201/cyp?sslmode=require")
+
+	db, err = sql.Open("postgres",
+		"postgres://postgres@192.168.1.201/cyp?sslmode=require")
 	if err != nil {
 		log.Println(err)
-		return err
+		return errors.New("could not open db connection")
 	}
 
 	err = db.Ping()
 	if err != nil {
 		log.Println(err)
-		return err
+		return errors.New("could not ping db")
 	}
 
 	return nil
@@ -106,33 +136,6 @@ func dbStats() error {
 func bakery(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Println("[bakery][" + r.Method + "] hit")
 	fmt.Fprint(w, "Do you know the muffin man?\n")
-}
-
-type UpdateMsg struct {
-	Computers []addie.Computer
-}
-
-type DeleteMsg struct {
-	Elements []addie.Element
-}
-
-type UpdateResult struct {
-	Name string
-	Sys  string
-}
-
-type FailedUpdateResult struct {
-	UpdateResult
-	Msg string
-}
-
-type AggUpdateResult struct {
-	Result  string
-	Details string
-	Created []UpdateResult
-	Updated []UpdateResult
-	Deleted []UpdateResult
-	Failed  []FailedUpdateResult
 }
 
 func updateFailed(details string) AggUpdateResult {
