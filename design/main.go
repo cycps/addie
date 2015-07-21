@@ -135,6 +135,10 @@ type AggUpdateResult struct {
 	Failed  []FailedUpdateResult
 }
 
+func updateFailed(details string) AggUpdateResult {
+	return AggUpdateResult{"failed", details, nil, nil, nil, nil}
+}
+
 func writeUpdateResult(w http.ResponseWriter, r AggUpdateResult) {
 	bs, err := json.Marshal(r)
 	if err != nil {
@@ -145,34 +149,16 @@ func writeUpdateResult(w http.ResponseWriter, r AggUpdateResult) {
 	}
 }
 
-func unpackUpdateMsg(r *http.Request) (*UpdateMsg, error) {
-	log.Print("unpacking update message")
-
+func unpack(r *http.Request, msg interface{}) error {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(r.Body)
 
-	msg := new(UpdateMsg)
 	err := json.Unmarshal(buf.Bytes(), msg)
 	if err != nil {
 		log.Println(err)
-		return nil, errors.New("unable to unpack update mesage\n" + buf.String())
+		return errors.New("unpack error" + buf.String())
 	}
-	return msg, nil
-}
-
-func unpackDeleteMsg(r *http.Request) (*DeleteMsg, error) {
-	log.Print("unpacking delete message")
-
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(r.Body)
-
-	msg := new(DeleteMsg)
-	err := json.Unmarshal(buf.Bytes(), msg)
-	if err != nil {
-		log.Println(err)
-		return nil, errors.New("unable to unpack delete message\n" + buf.String())
-	}
-	return msg, nil
+	return nil
 }
 
 func updateResponse(w http.ResponseWriter, r *AggUpdateResult) error {
@@ -330,17 +316,17 @@ func doDelete(d *DeleteMsg) (*AggUpdateResult, error) {
 
 func handleDesignUpdate(w http.ResponseWriter, r *http.Request,
 	ps httprouter.Params) {
-	xpid := ps.ByName("xpid")
-	root.Name = xpid
-	log.Printf("/design/%s", xpid)
+
+	root.Name = ps.ByName("xpid")
+	log.Printf("/design/%s", root.Name)
 	w.Header().Set("Content-Type", "application/json")
 
 	//unpack message
-	in, err := unpackUpdateMsg(r)
+	in := new(UpdateMsg)
+	err := unpack(r, in)
 	if err != nil {
 		log.Println(err)
-		writeUpdateResult(w, AggUpdateResult{"failed", "malformed request",
-			nil, nil, nil, nil})
+		writeUpdateResult(w, updateFailed("malformed request"))
 		return
 	}
 
@@ -348,8 +334,7 @@ func handleDesignUpdate(w http.ResponseWriter, r *http.Request,
 	out, err := doUpdate(in)
 	if err != nil {
 		log.Println(err)
-		writeUpdateResult(w, AggUpdateResult{"failed", "persistence error",
-			nil, nil, nil, nil})
+		writeUpdateResult(w, updateFailed("persistence error"))
 	}
 
 	//send response
@@ -363,41 +348,21 @@ func handleDesignDelete(w http.ResponseWriter, r *http.Request,
 	w.Header().Set("Content-Type", "application/json")
 
 	//unpack message
-	in, err := unpackDeleteMsg(r)
+	in := new(DeleteMsg)
+	err := unpack(r, in)
 	if err != nil {
 		log.Println(err)
-		writeUpdateResult(w, AggUpdateResult{"failed", "malformed request",
-			nil, nil, nil, nil})
+		writeUpdateResult(w, updateFailed("malformed request"))
 		return
 	}
 
 	out, err := doDelete(in)
 	if err != nil {
 		log.Println(err)
-		writeUpdateResult(w, AggUpdateResult{"failed", "persistence error",
-			nil, nil, nil, nil})
+		writeUpdateResult(w, updateFailed("persistence error"))
 	}
 
 	updateResponse(w, out)
-
-	/*
-		//TODO this is a thermonuclear baseline
-		var _rt addie.System
-		root = _rt
-		root.Name = xpid
-		q0 := "DELETE FROM computers ;"
-		q1 := "DELETE FROM network_hosts ;"
-
-		db.Query(q0)
-		db.Query(q1)
-
-		//TODO hardcode for test baseline
-		var res AggUpdateResult
-		res.Result = "ok"
-		res.Deleted = append(res.Deleted, UpdateResult{"abby", "system47"})
-
-		updateResponse(w, &res)
-	*/
 }
 
 func handleRequests() {
@@ -425,11 +390,6 @@ func main() {
 	if dbConnect() != nil {
 		exit(1)
 	}
-	/*
-		if dbStats() != nil {
-			exit(1)
-		}
-	*/
 
 	handleRequests()
 
