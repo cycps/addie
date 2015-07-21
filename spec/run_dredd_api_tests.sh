@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-dredd ~/.cypress/addie/spec/design.md https://192.168.1.202:8080 --hookfiles=~/.cypress/addie/spec/design/hooks*.js
+dredd ~/.cypress/addie/spec/design.md https://192.168.1.202:8080 --hookfiles=$HOME/.cypress/addie/spec/hooks*.js
