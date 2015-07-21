@@ -92,7 +92,7 @@ The API for designing [Cypress](https://cypress.deterlab.net) experiments.
           "Elements": [
             {
               "Name": "abby",
-              "Sys": "system47",
+              "Sys": "system47"
             }
           ]
         }

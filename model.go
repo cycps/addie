@@ -1,6 +1,7 @@
 package addie
 
 import (
+	"errors"
 	"log"
 	"strings"
 )
@@ -54,6 +55,28 @@ type System struct {
 	Computers []Computer
 	Switches  []Switch
 	Routers   []Router
+}
+
+func (s *System) DeleteElement(e Element) error {
+	sys := s.FindSubSystem(e.Sys)
+	if sys == nil {
+		return errors.New("unkown system " + e.Sys)
+	}
+
+	found := false
+	var idx int
+	for i, c := range sys.Computers {
+		if c.Name == e.Name {
+			found = true
+			idx = i
+			break
+		}
+	}
+	if found {
+		sys.Computers = append(sys.Computers[:idx], sys.Computers[1+idx:]...)
+		return nil
+	}
+	return nil
 }
 
 func (s *System) FindSubSystem(name string) *System {

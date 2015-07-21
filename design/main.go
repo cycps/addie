@@ -28,7 +28,10 @@ func initLogging() {
 		fmt.Fprintf(os.Stderr, err.Error()+"\n")
 		os.Exit(1)
 	}
-	logfile, err := os.OpenFile(cypdir+"/log/addie.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+
+	logfile, err := os.OpenFile(cypdir+"/log/addie.log",
+		os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "unable to open "+cypdir+"/log/addie.log for writing\n")
 		fmt.Fprintf(os.Stderr, err.Error()+"\n")
@@ -109,6 +112,10 @@ type UpdateMsg struct {
 	Computers []addie.Computer
 }
 
+type DeleteMsg struct {
+	Elements []addie.Element
+}
+
 type UpdateResult struct {
 	Name string
 	Sys  string
@@ -149,6 +156,21 @@ func unpackUpdateMsg(r *http.Request) (*UpdateMsg, error) {
 	if err != nil {
 		log.Println(err)
 		return nil, errors.New("unable to unpack update mesage\n" + buf.String())
+	}
+	return msg, nil
+}
+
+func unpackDeleteMsg(r *http.Request) (*DeleteMsg, error) {
+	log.Print("unpacking delete message")
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r.Body)
+
+	msg := new(DeleteMsg)
+	err := json.Unmarshal(buf.Bytes(), msg)
+	if err != nil {
+		log.Println(err)
+		return nil, errors.New("unable to unpack delete message\n" + buf.String())
 	}
 	return msg, nil
 }
@@ -252,6 +274,60 @@ func doUpdate(u *UpdateMsg) (*AggUpdateResult, error) {
 	return r, nil
 }
 
+func dbElementDelete(e addie.Element) error {
+
+	q := fmt.Sprintf("DELETE FROM network_hosts WHERE name = '%s' AND sys = '%s';",
+		e.Name, e.Sys)
+	log.Println(q)
+
+	_, err := db.Query(q)
+	if err != nil {
+		log.Println(err)
+		return errors.New("element delete failed")
+	}
+	return nil
+}
+
+func deleteElement(e addie.Element, r *AggUpdateResult) error {
+	err := root.DeleteElement(e)
+	if err != nil {
+		log.Println(err)
+		var fur FailedUpdateResult
+		fur.Name = e.Name
+		fur.Sys = e.Sys
+		fur.Msg = "Non-existant system"
+		r.Failed = append(r.Failed, fur)
+	} else {
+		err := dbElementDelete(e)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		r.Deleted = append(r.Deleted, UpdateResult{e.Name, e.Sys})
+	}
+	return nil
+}
+
+func doDelete(d *DeleteMsg) (*AggUpdateResult, error) {
+	r := new(AggUpdateResult)
+	r.Result = "ok"
+
+	for _, e := range d.Elements {
+		err := deleteElement(e, r)
+		if err != nil {
+			r.Result = "failed"
+			log.Println(err)
+			break
+		}
+	}
+	if len(r.Failed) > 0 {
+		r.Result = "failed"
+	}
+	log.Println(root)
+
+	return r, nil
+}
+
 func handleDesignUpdate(w http.ResponseWriter, r *http.Request,
 	ps httprouter.Params) {
 	xpid := ps.ByName("xpid")
@@ -286,23 +362,42 @@ func handleDesignDelete(w http.ResponseWriter, r *http.Request,
 	log.Printf("/design/%s/delete", xpid)
 	w.Header().Set("Content-Type", "application/json")
 
-	//TODO this is a thermonuclear baseline
-	var _rt addie.System
-	root = _rt
-	root.Name = xpid
-	q0 := "DELETE FROM computers ;"
-	q1 := "DELETE FROM network_hosts ;"
+	//unpack message
+	in, err := unpackDeleteMsg(r)
+	if err != nil {
+		log.Println(err)
+		writeUpdateResult(w, AggUpdateResult{"failed", "malformed request",
+			nil, nil, nil, nil})
+		return
+	}
 
-	db.Query(q0)
-	db.Query(q1)
+	out, err := doDelete(in)
+	if err != nil {
+		log.Println(err)
+		writeUpdateResult(w, AggUpdateResult{"failed", "persistence error",
+			nil, nil, nil, nil})
+	}
 
-	//TODO hardcode for test baseline
-	var res AggUpdateResult
-	res.Result = "ok"
-	res.Deleted = append(res.Deleted, UpdateResult{"abby", "system47"})
+	updateResponse(w, out)
 
-	updateResponse(w, &res)
+	/*
+		//TODO this is a thermonuclear baseline
+		var _rt addie.System
+		root = _rt
+		root.Name = xpid
+		q0 := "DELETE FROM computers ;"
+		q1 := "DELETE FROM network_hosts ;"
 
+		db.Query(q0)
+		db.Query(q1)
+
+		//TODO hardcode for test baseline
+		var res AggUpdateResult
+		res.Result = "ok"
+		res.Deleted = append(res.Deleted, UpdateResult{"abby", "system47"})
+
+		updateResponse(w, &res)
+	*/
 }
 
 func handleRequests() {
@@ -315,7 +410,8 @@ func handleRequests() {
 
 	log.Println("listening ...")
 	log.Fatal(
-		http.ListenAndServeTLS(":8080", cypdir+"/keys/cert.pem", cypdir+"/keys/key.pem", router))
+		http.ListenAndServeTLS(":8080", cypdir+"/keys/cert.pem",
+			cypdir+"/keys/key.pem", router))
 
 }
 
