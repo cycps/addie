@@ -4,8 +4,13 @@ import (
 	"github.com/cycps/addie"
 )
 
+type ComputerUpdate struct {
+	OID  addie.Id
+	Data addie.Computer
+}
+
 type Update struct {
-	Computers  []addie.Computer
+	Computers  []ComputerUpdate
 	Switches   []addie.Switch
 	Routers    []addie.Router
 	Links      []addie.Link

@@ -56,8 +56,12 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	}
 
 	//perform the updates
-	for _, c := range msg.Computers {
-		design.Computers[c.Id] = c
+	for _, u := range msg.Computers {
+		design.Computers[u.Data.Id] = u.Data
+		if u.Data.Id != u.OID {
+			log.Println("deleting ", u.OID)
+			delete(design.Computers, u.OID)
+		}
 	}
 
 	for _, c := range msg.Switches {
@@ -92,7 +96,7 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		design.Actuators[c.Id] = c
 	}
 
-	log.Println(design)
+	log.Println("\n", design.String())
 
 	//send response
 	w.WriteHeader(http.StatusOK)

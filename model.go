@@ -1,5 +1,9 @@
 package addie
 
+import (
+	"fmt"
+)
+
 type Id struct{ Name, Sys, Design string }
 
 //Cyber------------------------------------------------------------------------
@@ -79,6 +83,22 @@ type Design struct {
 	Equalities map[Id]VarRef
 	Sensors    map[Id]Sensor
 	Actuators  map[Id]Actuator
+}
+
+func (d *Design) String() string {
+	s := d.Name + "\n"
+
+	s += "  computers:\n"
+	for _, x := range d.Computers {
+		s += fmt.Sprint("    ", x, "\n")
+	}
+
+	s += "  switches:\n"
+	for _, x := range d.Switches {
+		s += fmt.Sprint("    ", x, "\n")
+	}
+
+	return s
 }
 
 func EmptyDesign(name string) Design {
