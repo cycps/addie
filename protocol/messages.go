@@ -4,46 +4,24 @@ import (
 	"github.com/cycps/addie"
 )
 
-type Id struct{ Name, Sys, Design *string }
-
-func (x *Id) Resolve() *addie.Id {
-	return nil
-}
-
-//Cyber------------------------------------------------------------------------
-
-type NetHost struct {
-	Id
-	Interfaces *map[string]Interface
-}
-type Interface struct {
-	Name *string
-	PacketConductor
-}
-type Computer struct {
-	NetHost
-	OS           *string
-	Start_script *string
-}
-
-type PacketConductor struct {
-	Capacity *int
-	Latency  *int
-}
-
-type UpdateMsg struct {
-	Computers *[]Computer
-}
-
 type Update struct {
-	Computers []addie.Computer
-}
-
-func (x *UpdateMsg) Resolve() *UpdateMsg {
-	//TODO you are here
-	return nil
+	Computers  []addie.Computer
+	Switches   []addie.Switch
+	Routers    []addie.Router
+	Links      []addie.Link
+	Models     []addie.Model
+	Equalities []addie.VarRef
+	Sensors    []addie.Sensor
+	Actuators  []addie.Actuator
 }
 
 type Delete struct {
-	Computers *[]Id
+	Computers  []addie.Id
+	Switches   []addie.Id
+	Routers    []addie.Id
+	Links      []addie.Id
+	Models     []addie.Id
+	Equalities []addie.Id
+	Sensors    []addie.Id
+	Actuators  []addie.Id
 }

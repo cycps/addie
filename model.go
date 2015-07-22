@@ -70,11 +70,15 @@ type Actuator struct {
 }
 
 type Design struct {
-	Name      string
-	Computers map[Id]Computer
-	Switches  map[Id]Switch
-	Routers   map[Id]Router
-	Links     map[Id]Link
+	Name       string
+	Computers  map[Id]Computer
+	Switches   map[Id]Switch
+	Routers    map[Id]Router
+	Links      map[Id]Link
+	Models     map[Id]Model
+	Equalities map[Id]VarRef
+	Sensors    map[Id]Sensor
+	Actuators  map[Id]Actuator
 }
 
 func EmptyDesign(name string) Design {
