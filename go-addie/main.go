@@ -45,6 +45,16 @@ func unpack(r *http.Request, x interface{}) error {
 	return nil
 }
 
+func updateElement(id addie.Id, e addie.Identify) {
+
+	design.Elements[e.Identify()] = e
+	if e.Identify() != id {
+		log.Println("deleting ", id)
+		delete(design.Elements, id)
+	}
+
+}
+
 func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	//unpack the message
@@ -55,45 +65,19 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
-	//perform the updates
-	for _, u := range msg.Computers {
-		design.Computers[u.Data.Id] = u.Data
-		if u.Data.Id != u.OID {
-			log.Println("deleting ", u.OID)
-			delete(design.Computers, u.OID)
+	for _, u := range msg.Elements {
+
+		switch u.Type {
+		case "Computer":
+			var c addie.Computer
+			err := json.Unmarshal(u.Element, &c)
+			if err != nil {
+				log.Println("unable to unmarshal computer")
+			}
+			updateElement(u.OID, c)
 		}
-	}
+		//TODO other unmarshallers go here
 
-	for _, c := range msg.Switches {
-		design.Switches[c.Id] = c
-	}
-
-	for _, c := range msg.Routers {
-		design.Routers[c.Id] = c
-	}
-
-	/*
-		for _, c := range msg.Links {
-			design.Links[c.Id] = c
-		}
-	*/
-
-	for _, c := range msg.Models {
-		design.Models[c.Id] = c
-	}
-
-	/*
-		for _, c := range msg.Equalities {
-			design.Equalities[c.Id] = c
-		}
-	*/
-
-	for _, c := range msg.Sensors {
-		design.Sensors[c.Id] = c
-	}
-
-	for _, c := range msg.Actuators {
-		design.Actuators[c.Id] = c
 	}
 
 	log.Println("\n", design.String())
@@ -105,36 +89,38 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 func onDelete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
-	//unpack the message
-	msg := new(protocol.Delete)
-	err := unpack(r, msg)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+	/*
+		//unpack the message
+		msg := new(protocol.Delete)
+		err := unpack(r, msg)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 
-	//perform the deletes
-	for _, id := range msg.Computers {
-		delete(design.Computers, id)
-	}
-	for _, id := range msg.Switches {
-		delete(design.Switches, id)
-	}
-	for _, id := range msg.Routers {
-		delete(design.Routers, id)
-	}
-	for _, id := range msg.Models {
-		delete(design.Models, id)
-	}
-	for _, id := range msg.Sensors {
-		delete(design.Sensors, id)
-	}
-	for _, id := range msg.Actuators {
-		delete(design.Actuators, id)
-	}
+		//perform the deletes
+		for _, id := range msg.Computers {
+			delete(design.Computers, id)
+		}
+		for _, id := range msg.Switches {
+			delete(design.Switches, id)
+		}
+		for _, id := range msg.Routers {
+			delete(design.Routers, id)
+		}
+		for _, id := range msg.Models {
+			delete(design.Models, id)
+		}
+		for _, id := range msg.Sensors {
+			delete(design.Sensors, id)
+		}
+		for _, id := range msg.Actuators {
+			delete(design.Actuators, id)
+		}
 
-	//send response
-	w.WriteHeader(http.StatusOK)
+		//send response
+		w.WriteHeader(http.StatusOK)
+	*/
 }
 
 func listen() {

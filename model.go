@@ -6,6 +6,10 @@ import (
 
 type Id struct{ Name, Sys, Design string }
 
+type Identify interface {
+	Identify() Id
+}
+
 //Cyber------------------------------------------------------------------------
 
 type NetHost struct {
@@ -16,11 +20,15 @@ type Interface struct {
 	Name string
 	PacketConductor
 }
+
 type Computer struct {
 	NetHost
 	OS           string
 	Start_script string
 }
+
+func (c Computer) Identify() Id { return c.Id }
+
 type PacketConductor struct {
 	Capacity int
 	Latency  int
@@ -73,6 +81,7 @@ type Actuator struct {
 	DynamicLimit Bound
 }
 
+/*
 type Design struct {
 	Name       string
 	Computers  map[Id]Computer
@@ -84,7 +93,14 @@ type Design struct {
 	Sensors    map[Id]Sensor
 	Actuators  map[Id]Actuator
 }
+*/
 
+type Design struct {
+	Name     string
+	Elements map[Id]Identify
+}
+
+/*
 func (d *Design) String() string {
 	s := d.Name + "\n"
 
@@ -100,7 +116,20 @@ func (d *Design) String() string {
 
 	return s
 }
+*/
 
+func (d *Design) String() string {
+	s := d.Name + "\n"
+
+	s += " elements:\n"
+	for _, x := range d.Elements {
+		s += fmt.Sprint("    ", x, "\n")
+	}
+
+	return s
+}
+
+/*
 func EmptyDesign(name string) Design {
 	var m Design
 	m.Name = name
@@ -108,5 +137,13 @@ func EmptyDesign(name string) Design {
 	m.Switches = make(map[Id]Switch)
 	m.Routers = make(map[Id]Router)
 	m.Links = make(map[Id]Link)
+	return m
+}
+*/
+
+func EmptyDesign(name string) Design {
+	var m Design
+	m.Name = name
+	m.Elements = make(map[Id]Identify)
 	return m
 }
