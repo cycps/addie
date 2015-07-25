@@ -59,6 +59,8 @@ type Link struct {
 	Endpoints [2]NetIfRef
 }
 
+func (l Link) Identify() Id { return l.Id }
+
 //Physical---------------------------------------------------------------------
 
 type Model struct {

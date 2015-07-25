@@ -110,6 +110,15 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				log.Println("unable to unmarshal sensor")
 			}
 			updateElement(u.OID, a)
+		case "Link":
+			var l addie.Link
+			err := json.Unmarshal(u.Element, &l)
+			if err != nil {
+				log.Println("unable to unmarshal link")
+			}
+			updateElement(u.OID, l)
+		default:
+			log.Println("unkown element type: ", u.Type)
 		}
 		//TODO other unmarshallers go here
 
