@@ -33,20 +33,28 @@ type PacketConductor struct {
 	Capacity int
 	Latency  int
 }
+
 type Switch struct {
 	Id
 	PacketConductor
 }
+
+func (s Switch) Identify() Id { return s.Id }
+
 type Router struct {
 	NetHost
 	PacketConductor
 }
+
+func (r Router) Identify() Id { return r.Id }
+
 type NetIfRef struct {
 	Id
 	IfName string
 }
+
 type Link struct {
-	Name string
+	Id
 	PacketConductor
 	Endpoints [2]NetIfRef
 }
@@ -57,10 +65,14 @@ type Model struct {
 	Id
 	Equations []string
 }
+
+func (m Model) Identify() Id { return m.Id }
+
 type VarRef struct {
 	Id
 	Variable string
 }
+
 type Equality struct {
 	Id
 	lhs, rhs VarRef
@@ -73,6 +85,9 @@ type Sensor struct {
 	Target VarRef
 	Rate   uint
 }
+
+func (s Sensor) Identify() Id { return s.Id }
+
 type Bound struct{ Min, Max float64 }
 type Actuator struct {
 	Id
@@ -81,65 +96,23 @@ type Actuator struct {
 	DynamicLimit Bound
 }
 
-/*
-type Design struct {
-	Name       string
-	Computers  map[Id]Computer
-	Switches   map[Id]Switch
-	Routers    map[Id]Router
-	Links      map[Id]Link
-	Models     map[Id]Model
-	Equalities map[Id]VarRef
-	Sensors    map[Id]Sensor
-	Actuators  map[Id]Actuator
-}
-*/
+func (a Actuator) Identify() Id { return a.Id }
 
 type Design struct {
 	Name     string
 	Elements map[Id]Identify
 }
 
-/*
-func (d *Design) String() string {
-	s := d.Name + "\n"
-
-	s += "  computers:\n"
-	for _, x := range d.Computers {
-		s += fmt.Sprint("    ", x, "\n")
-	}
-
-	s += "  switches:\n"
-	for _, x := range d.Switches {
-		s += fmt.Sprint("    ", x, "\n")
-	}
-
-	return s
-}
-*/
-
 func (d *Design) String() string {
 	s := d.Name + "\n"
 
 	s += " elements:\n"
 	for _, x := range d.Elements {
-		s += fmt.Sprint("    ", x, "\n")
+		s += fmt.Sprintf("    [%T]: %v \n", x, x)
 	}
 
 	return s
 }
-
-/*
-func EmptyDesign(name string) Design {
-	var m Design
-	m.Name = name
-	m.Computers = make(map[Id]Computer)
-	m.Switches = make(map[Id]Switch)
-	m.Routers = make(map[Id]Router)
-	m.Links = make(map[Id]Link)
-	return m
-}
-*/
 
 func EmptyDesign(name string) Design {
 	var m Design

@@ -75,6 +75,41 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				log.Println("unable to unmarshal computer")
 			}
 			updateElement(u.OID, c)
+		case "Switch":
+			var s addie.Switch
+			err := json.Unmarshal(u.Element, &s)
+			if err != nil {
+				log.Println("unable to unmarshal switch")
+			}
+			updateElement(u.OID, s)
+		case "Router":
+			var r addie.Router
+			err := json.Unmarshal(u.Element, &r)
+			if err != nil {
+				log.Println("unable to unmarshal router")
+			}
+			updateElement(u.OID, r)
+		case "Model":
+			var m addie.Model
+			err := json.Unmarshal(u.Element, &m)
+			if err != nil {
+				log.Println("unable to unmarshal model")
+			}
+			updateElement(u.OID, m)
+		case "Sensor":
+			var s addie.Sensor
+			err := json.Unmarshal(u.Element, &s)
+			if err != nil {
+				log.Println("unable to unmarshal sensor")
+			}
+			updateElement(u.OID, s)
+		case "Actuator":
+			var a addie.Actuator
+			err := json.Unmarshal(u.Element, &a)
+			if err != nil {
+				log.Println("unable to unmarshal sensor")
+			}
+			updateElement(u.OID, a)
 		}
 		//TODO other unmarshallers go here
 
@@ -89,38 +124,8 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 func onDelete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
-	/*
-		//unpack the message
-		msg := new(protocol.Delete)
-		err := unpack(r, msg)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
+	//TODO thundermuffin
 
-		//perform the deletes
-		for _, id := range msg.Computers {
-			delete(design.Computers, id)
-		}
-		for _, id := range msg.Switches {
-			delete(design.Switches, id)
-		}
-		for _, id := range msg.Routers {
-			delete(design.Routers, id)
-		}
-		for _, id := range msg.Models {
-			delete(design.Models, id)
-		}
-		for _, id := range msg.Sensors {
-			delete(design.Sensors, id)
-		}
-		for _, id := range msg.Actuators {
-			delete(design.Actuators, id)
-		}
-
-		//send response
-		w.WriteHeader(http.StatusOK)
-	*/
 }
 
 func listen() {
