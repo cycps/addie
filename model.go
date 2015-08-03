@@ -1,3 +1,6 @@
+/*
+This file contains the Cypress data model as perceived by addie
+*/
 package addie
 
 import (
@@ -5,6 +8,7 @@ import (
 )
 
 type Id struct{ Name, Sys, Design string }
+type Position struct{ X, Y, Z float32 }
 
 type Identify interface {
 	Identify() Id
@@ -23,6 +27,7 @@ type Interface struct {
 
 type Computer struct {
 	NetHost
+	Position     Position
 	OS           string
 	Start_script string
 }
@@ -37,6 +42,7 @@ type PacketConductor struct {
 type Switch struct {
 	Id
 	PacketConductor
+	Position Position
 }
 
 func (s Switch) Identify() Id { return s.Id }
@@ -44,6 +50,7 @@ func (s Switch) Identify() Id { return s.Id }
 type Router struct {
 	NetHost
 	PacketConductor
+	Position Position
 }
 
 func (r Router) Identify() Id { return r.Id }
@@ -55,6 +62,7 @@ type NetIfRef struct {
 
 type Link struct {
 	Id
+	Path []Position
 	PacketConductor
 	Endpoints [2]NetIfRef
 }
@@ -65,6 +73,7 @@ func (l Link) Identify() Id { return l.Id }
 
 type Model struct {
 	Id
+	Position  Position
 	Equations []string
 }
 
@@ -84,8 +93,9 @@ type Equality struct {
 
 type Sensor struct {
 	Id
-	Target VarRef
-	Rate   uint
+	Position Position
+	Target   VarRef
+	Rate     uint
 }
 
 func (s Sensor) Identify() Id { return s.Id }
@@ -93,6 +103,7 @@ func (s Sensor) Identify() Id { return s.Id }
 type Bound struct{ Min, Max float64 }
 type Actuator struct {
 	Id
+	Position     Position
 	Target       VarRef
 	StaticLimit  Bound
 	DynamicLimit Bound
