@@ -94,7 +94,7 @@ func TestSysCreateDestroy(t *testing.T) {
 
 }
 
-func testOneCreateDestroy(t *testing.T) {
+func TestOneCreateDestroy(t *testing.T) {
 
 	err := InsertDesign("caprica")
 	if err != nil {

@@ -70,6 +70,20 @@ func runQ(q string) (*sql.Rows, error) {
 	return rows, nil
 }
 
+func runC(q string) (sql.Result, error) {
+	err := dbPing()
+	if err != nil {
+		log.Println(err)
+		return nil, errors.New("failed to execute command -- error communicating with DB")
+	}
+	result, err := db.Exec(q)
+	if err != nil {
+		log.Println(err)
+		return nil, errors.New("Failed to run execute command")
+	}
+	return result, nil
+}
+
 func GetDesigns() (map[string]struct{}, error) {
 	m := make(map[string]struct{})
 
@@ -213,18 +227,68 @@ func DesignKey(name string) (int, error) {
 
 func InsertComputer(c addie.Computer) error {
 
-	design_id, sys_id, err := SysKey(c.Design, c.Sys)
+	_, sys_id, err := SysKey(c.Design, c.Sys)
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("retrieving system '%s' failed", c.Sys)
 	}
 
+	//id insert
 	q := fmt.Sprintf(
-		"INSERT INTO ids (name, sys_id, design_id) VALUES ('%s', %d, %d)",
-		c.Name, sys_id, design_id)
+		"INSERT INTO ids (name, sys_id) VALUES ('%s', %d)",
+		c.Name, sys_id)
 
 	_, err = runQ(q)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertComputer] id insert failed")
+	}
 
+	_, _, id_key, err := IdKey(c.Id)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Computer insert failed -- could not retrieve key")
+	}
+
+	//network_host insert
+	q = fmt.Sprintf(
+		"INSERT INTO network_hosts (id) VALUES (%d)", id_key)
+
+	_, err = runQ(q)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertComputer] network_host insert failed")
+	}
+
+	//pos insert
+	q = fmt.Sprintf(
+		"INSERT INTO positions (x, y, z) VALUES (%f, %f, %f) RETURNING id",
+		c.Position.X, c.Position.Y, c.Position.Z)
+
+	rows, err := runQ(q)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertComputer] position insert failed")
+	}
+	if !rows.Next() {
+		log.Println(err)
+		return fmt.Errorf("[InsertComputer] pg RETURNING cursor did not return anything")
+	}
+
+	var pos_key int
+	err = rows.Scan(&pos_key)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertComputer] failed to read pg RETURNING row")
+	}
+
+	//computer insert
+	q = fmt.Sprintf(
+		"INSERT INTO computers (id, os, start_script, position_id) "+
+			"values (%d, '%s', '%s', %d)",
+		id_key, c.OS, c.Start_script, pos_key)
+
+	_, err = runQ(q)
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("Error inserting Computer '%s' into the DB", c.Name)
