@@ -18,6 +18,7 @@ const (
 )
 
 var db *sql.DB = nil
+var tx *sql.Tx = nil
 
 func dbConnect() error {
 	var err error = nil
@@ -62,7 +63,12 @@ func runQ(q string) (*sql.Rows, error) {
 		log.Println(err)
 		return nil, errors.New("failed to run query -- error communicating with DB")
 	}
-	rows, err := db.Query(q)
+	var rows *sql.Rows
+	if tx != nil {
+		rows, err = tx.Query(q)
+	} else {
+		rows, err = db.Query(q)
+	}
 	if err != nil {
 		log.Println(err)
 		return nil, errors.New("Failed to run query")
@@ -70,6 +76,7 @@ func runQ(q string) (*sql.Rows, error) {
 	return rows, nil
 }
 
+/*
 func runC(q string) (sql.Result, error) {
 	err := dbPing()
 	if err != nil {
@@ -82,6 +89,36 @@ func runC(q string) (sql.Result, error) {
 		return nil, errors.New("Failed to run execute command")
 	}
 	return result, nil
+}
+*/
+
+func beginTx() error {
+	err := dbPing()
+	if err != nil {
+		log.Println(err)
+		return errors.New("failed to start transaction -- error communicating with DB")
+	}
+	tx, err = db.Begin()
+	if err != nil {
+		log.Println(err)
+		return errors.New("Failed to start transaction")
+	}
+	return nil
+}
+
+func endTx() error {
+	err := dbPing()
+	if err != nil {
+		log.Println(err)
+		return errors.New("failed to commit transaction -- error communicating with DB")
+	}
+	err = tx.Commit()
+	if err != nil {
+		log.Println(err)
+		return errors.New("Failed to commit transaction")
+	}
+	tx = nil
+	return nil
 }
 
 func GetDesigns() (map[string]struct{}, error) {

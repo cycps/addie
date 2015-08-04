@@ -96,16 +96,33 @@ func TestSysCreateDestroy(t *testing.T) {
 
 func TestOneCreateDestroy(t *testing.T) {
 
+	/*
+		err := beginTx()
+		if err != nil {
+			t.Log(err)
+			t.Fatal("failed to start transaction")
+		}
+	*/
+
 	err := InsertDesign("caprica")
 	if err != nil {
 		t.Log(err)
-		t.Error("failed to create caprica")
+		t.Fatal("failed to create caprica")
 	}
+
+	//ghetto transaction
+	defer func() {
+		err = TrashDesign("caprica") //on cascade delete cleans up everything
+		if err != nil {
+			t.Log(err)
+			t.Fatal("failed to trash caprica")
+		}
+	}()
 
 	err = InsertSystem("caprica", "root")
 	if err != nil {
 		t.Log(err)
-		t.Error("failed to create caprica.root")
+		t.Fatal("failed to create caprica.root")
 	}
 
 	c := addie.Computer{}
@@ -123,13 +140,13 @@ func TestOneCreateDestroy(t *testing.T) {
 	err = InsertComputer(c)
 	if err != nil {
 		t.Log(err)
-		t.Error("failed to insert computer")
+		t.Fatal("failed to insert computer")
 	}
 
 	_c, err := GetComputer(addie.Id{"c", "root", "caprica"})
 	if err != nil {
 		t.Log(err)
-		t.Error("failed to retrieve computer")
+		t.Fatal("failed to retrieve computer")
 	}
 
 	if c.Name != _c.Name {
@@ -152,10 +169,12 @@ func TestOneCreateDestroy(t *testing.T) {
 		t.Error("round trip failed for: Start_script")
 	}
 
-	err = TrashDesign("caprica") //on cascade delete cleans up everything
-	if err != nil {
-		t.Log(err)
-		t.Error("failed to trash caprica")
-	}
+	/*
+		err = endTx()
+		if err != nil {
+			t.Log(err)
+			t.Fatal("failed to commit transaction")
+		}
+	*/
 
 }
