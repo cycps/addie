@@ -207,6 +207,40 @@ func TestOneCreateDestroy(t *testing.T) {
 		t.Error("router round trip failed for: position")
 	}
 
+	//Add a switch ---------------
+	sw := addie.Switch{}
+	//Id
+	sw.Name = "sw"
+	sw.Sys = "root"
+	sw.Design = "caprica"
+	//PacketConductor
+	sw.Latency = 74
+	sw.Capacity = 100000
+	sw.Position = addie.Position{100, 100, 20}
+
+	err = InsertSwitch(sw)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to insert switch")
+	}
+
+	_sw, err := GetSwitch(sw.Id)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to get switch")
+	}
+
+	if sw.Id != _sw.Id {
+		t.Error("router round trip failed for: Id")
+	}
+
+	if sw.PacketConductor != _sw.PacketConductor {
+		t.Error("switch round trip failed for: Packet Conductor")
+	}
+	if sw.Position != _sw.Position {
+		t.Error("switch round trip failed for: Position")
+	}
+
 	/*
 		err = endTx()
 		if err != nil {

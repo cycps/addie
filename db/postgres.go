@@ -631,4 +631,48 @@ func InsertSwitch(s addie.Switch) error {
 
 func GetSwitch(id addie.Id) (*addie.Switch, error) {
 
+	_, _, id_key, err := IdKey(id)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetSwitch] get id %v failed", id)
+	}
+
+	q := fmt.Sprintf(
+		"SELECT packet_conductor_id, position_id FROM switches WHERE id = %d", id_key)
+
+	rows, err := runQ(q)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetSwitch] failed to run query: %s", q)
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("[GetSwitch] Failed to find switch with id %v", id)
+	}
+
+	var pkt_key, pos_key int
+	err = rows.Scan(&pkt_key, &pos_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetSwitch] failed to read row result")
+	}
+
+	pos, err := GetPosition(pos_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetSwitch] failed to get position")
+	}
+
+	pkt, err := GetPacketConductor(pkt_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetSwitch] failed to get packet conductor")
+	}
+
+	sw := addie.Switch{}
+	sw.Id = id
+	sw.PacketConductor = *pkt
+	sw.Position = *pos
+
+	return &sw, nil
+
 }
