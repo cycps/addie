@@ -117,24 +117,189 @@ func TrashDesign(name string) error {
 	return nil
 }
 
+func InsertSystem(design string, name string) error {
+
+	design_key, err := DesignKey(design)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertSystem] design '%s' does not exist", design)
+	}
+
+	q := fmt.Sprintf("INSERT INTO systems (design_id, name) VALUES (%d, '%s')",
+		design_key, name)
+
+	_, err = runQ(q)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func getKey(q string) (int, error) {
+
+	rows, err := runQ(q)
+	if err != nil {
+		log.Println(err)
+		return -1, fmt.Errorf("failed to run key query: %s", q)
+	}
+
+	if !rows.Next() {
+		return -1, fmt.Errorf("could not find key")
+	}
+
+	var sys_id int
+	err = rows.Scan(&sys_id)
+	if err != nil {
+		log.Println(err)
+		return -1, fmt.Errorf("could not read key")
+	}
+
+	return sys_id, nil
+
+}
+
+func SysKey(design string, name string) (int, int, error) {
+
+	design_key, err := DesignKey(design)
+	if err != nil {
+		log.Println(err)
+		return -1, -1, fmt.Errorf("[SysKey] design '%s' does not exist", design)
+	}
+
+	q := fmt.Sprintf("SELECT id FROM systems WHERE name = '%s' AND design_id = %d",
+		name, design_key)
+
+	sys_key, err := getKey(q)
+	if err != nil {
+		log.Println(err)
+		return -1, -1, fmt.Errorf("could not get key for system '%s'", name)
+	}
+	return design_key, sys_key, nil
+}
+
+func IdKey(id addie.Id) (int, int, int, error) {
+
+	design_key, sys_key, err := SysKey(id.Design, id.Sys)
+	if err != nil {
+		log.Println(err)
+		return -1, -1, -1, fmt.Errorf(
+			"[IdKey] (design, sys) combo ('%s', '%s') does not exist",
+			id.Design, id.Sys)
+	}
+
+	q := fmt.Sprintf("SELECT id FROM ids WHERE name = '%s' AND sys_id = '%d'",
+		id.Name, sys_key)
+
+	id_key, err := getKey(q)
+	if err != nil {
+		log.Println(err)
+		return -1, -1, -1, fmt.Errorf("could not get id key for %v", id)
+	}
+	return design_key, sys_key, id_key, nil
+}
+
+func DesignKey(name string) (int, error) {
+
+	q := fmt.Sprintf("SELECT id FROM designs WHERE name = '%s'", name)
+	key, err := getKey(q)
+	if err != nil {
+		log.Println(err)
+		return -1, fmt.Errorf("could not get key for design '%s'", name)
+	}
+	return key, nil
+}
+
 func InsertComputer(c addie.Computer) error {
 
-	//TODO you are here
-
-	sys_id, err := SysKey(c.Sys) //TODO
+	design_id, sys_id, err := SysKey(c.Design, c.Sys)
 	if err != nil {
 		log.Println(err)
-		return errors.New("retrieving system " + c.Sys + " failed")
-	}
-	design_id, err := DesignKey(c.Design) //TODO
-	if err != nil {
-		log.Println(err)
-		return errors.New("retrieving design " + c.Design + " failed")
+		return fmt.Errorf("retrieving system '%s' failed", c.Sys)
 	}
 
 	q := fmt.Sprintf(
 		"INSERT INTO ids (name, sys_id, design_id) VALUES ('%s', %d, %d)",
 		c.Name, sys_id, design_id)
 
+	_, err = runQ(q)
+
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Error inserting Computer '%s' into the DB", c.Name)
+	}
+
 	return nil
+}
+
+func GetPosition(id int) (*addie.Position, error) {
+
+	q := fmt.Sprintf(
+		"SELECT x, y, z FROM positions WHERE id = %d", id)
+
+	rows, err := runQ(q)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetPosition] query error")
+	}
+
+	if !rows.Next() {
+		return nil, fmt.Errorf("[GetPosition] position with id=%d does not exist", id)
+	}
+
+	var x, y, z float32
+	err = rows.Scan(&x, &y, &z)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetPosition] error reading result row")
+	}
+
+	return &addie.Position{x, y, z}, nil
+
+}
+
+func GetComputer(id addie.Id) (*addie.Computer, error) {
+
+	_, _, id_key, err := IdKey(id)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf(
+			"[GetComputer] unable to retrieve design or system for the id %v", id)
+	}
+
+	q := fmt.Sprintf(
+		"SELECT os, start_script, position_id FROM computers WHERE id = %d", id_key)
+
+	rows, err := runQ(q)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetComputer] failed to run query: %s", q)
+	}
+
+	if !rows.Next() {
+		return nil, fmt.Errorf("Failed find a computer with id %v", id)
+	}
+	var os, start_script string
+	var pos_key int
+	err = rows.Scan(&os, &start_script, &pos_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetComputer] failed to read row result")
+	}
+
+	pos, err := GetPosition(pos_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetComputer] failed to retrieve computer position")
+	}
+
+	c := addie.Computer{}
+	c.Id = id
+	c.Interfaces = make(map[string]addie.Interface) //todo
+	c.OS = os
+	c.Start_script = start_script
+	c.Position = *pos
+
+	return &c, nil
 }

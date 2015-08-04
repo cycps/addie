@@ -53,18 +53,66 @@ func TestDesignCreateDestroy(t *testing.T) {
 
 }
 
-func TestOneCreateDestroy(t *testing.T) {
+func TestSysCreateDestroy(t *testing.T) {
 
 	err := InsertDesign("caprica")
 	if err != nil {
 		t.Error("failed to create caprica")
 	}
 
+	designs, err := GetDesigns()
+	if err != nil {
+		t.Error(err)
+	}
+	_, ok := designs["caprica"]
+	if !ok {
+		t.Error("caprica has not been created")
+	}
+
+	err = InsertSystem("caprica", "root")
+	if err != nil {
+		t.Error(err)
+	}
+	_, _, err = SysKey("caprica", "root")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = TrashDesign("caprica")
+	if err != nil {
+		t.Error("failed to trash caprica")
+	}
+
+	designs, err = GetDesigns()
+	if err != nil {
+		t.Error(err)
+	}
+	_, ok = designs["caprica"]
+	if ok {
+		t.Error("caprica persists")
+	}
+
+}
+
+func testOneCreateDestroy(t *testing.T) {
+
+	err := InsertDesign("caprica")
+	if err != nil {
+		t.Log(err)
+		t.Error("failed to create caprica")
+	}
+
+	err = InsertSystem("caprica", "root")
+	if err != nil {
+		t.Log(err)
+		t.Error("failed to create caprica.root")
+	}
+
 	c := addie.Computer{}
 	//Id
 	c.Name = "c"
 	c.Sys = "root"
-	c.Design = "one"
+	c.Design = "caprica"
 	//NetHost
 	c.Interfaces = make(map[string]addie.Interface)
 	//Comptuer
@@ -74,11 +122,39 @@ func TestOneCreateDestroy(t *testing.T) {
 
 	err = InsertComputer(c)
 	if err != nil {
+		t.Log(err)
 		t.Error("failed to insert computer")
 	}
 
-	err = TrashDesign("caprica")
+	_c, err := GetComputer(addie.Id{"c", "root", "caprica"})
 	if err != nil {
+		t.Log(err)
+		t.Error("failed to retrieve computer")
+	}
+
+	if c.Name != _c.Name {
+		t.Error("round trip failed for: Name")
+	}
+	if c.Sys != _c.Sys {
+		t.Error("round trip failed for: Sys")
+	}
+	if c.Design != _c.Design {
+		t.Error("round trip failed for: Design")
+	}
+	//TODO test interfaces
+	if c.Position != _c.Position {
+		t.Error("round trip failed for: Position")
+	}
+	if c.OS != _c.OS {
+		t.Error("round trip failed for: OS")
+	}
+	if c.Start_script != _c.Start_script {
+		t.Error("round trip failed for: Start_script")
+	}
+
+	err = TrashDesign("caprica") //on cascade delete cleans up everything
+	if err != nil {
+		t.Log(err)
 		t.Error("failed to trash caprica")
 	}
 
