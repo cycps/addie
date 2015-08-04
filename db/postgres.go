@@ -446,6 +446,65 @@ func InsertRouter(r addie.Router) error {
 	return nil
 }
 
+func GetId(id int) (*addie.Id, error) {
+
+	//fetch the id
+	q := fmt.Sprintf(
+		"SELECT name, sys_id FROM ids WHERE id = %d", id)
+	rows, err := runQ(q)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetId] id-query error: %s", q)
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("[GetId] identity with id=%d does not exist", id)
+	}
+	var id_name string
+	var sys_key int
+	err = rows.Scan(&id_name, &sys_key)
+	if err != nil {
+		return nil, fmt.Errorf("[GetId] failed to read id-query result")
+	}
+
+	//fetch the sys
+	q = fmt.Sprintf(
+		"SELECT name, design_id FROM systems WHERE id=%d", sys_key)
+	rows, err = runQ(q)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetId] sys-query error: %s", q)
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("[GetId] sys with id=%d does not exist", id)
+	}
+	var sys_name string
+	var dsg_key int
+	err = rows.Scan(&sys_name, &dsg_key)
+	if err != nil {
+		return nil, fmt.Errorf("[GetId] failed to read sys-query result")
+	}
+
+	//fetch the design
+	q = fmt.Sprintf(
+		"SELECT name FROM designs WHERE id=%d", dsg_key)
+	rows, err = runQ(q)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetId] design-query error: %s", q)
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("[GetId] design with id=%d does not exist", id)
+	}
+	var dsg_name string
+	err = rows.Scan(&dsg_name)
+	if err != nil {
+		return nil, fmt.Errorf("[GetId] failed to read design-query result")
+	}
+
+	return &addie.Id{id_name, sys_name, dsg_name}, nil
+
+}
+
 func GetPosition(id int) (*addie.Position, error) {
 
 	q := fmt.Sprintf(
@@ -674,5 +733,103 @@ func GetSwitch(id addie.Id) (*addie.Switch, error) {
 	sw.Position = *pos
 
 	return &sw, nil
+
+}
+
+func InsertLink(l addie.Link) error {
+
+	//id insert
+	id_key, err := InsertId(l.Id)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertLink] Id insert failed")
+	}
+
+	//packet conductor insert
+	pkt_key, err := InsertPacketConductor(l.PacketConductor)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertLink] Packet Conductor insert failed")
+	}
+
+	//endpoint1
+	_, _, ep0_key, err := IdKey(l.Endpoints[0].Id)
+	if err != nil {
+		return fmt.Errorf("[InsertLink] bad endpoint[0]")
+	}
+
+	_, _, ep1_key, err := IdKey(l.Endpoints[1].Id)
+	if err != nil {
+		return fmt.Errorf("[InsertLink] bad endpoint[1]")
+	}
+
+	q := fmt.Sprintf(
+		"INSERT INTO links (id, packet_conductor_id, endpoint_a_id, endpoint_b_id) "+
+			"values (%d, %d, %d, %d)",
+		id_key, pkt_key, ep0_key, ep1_key)
+
+	_, err = runQ(q)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Error inserting link '%s' into the DB", l.Name)
+	}
+
+	return nil
+
+}
+
+func GetLink(id addie.Id) (*addie.Link, error) {
+
+	_, _, id_key, err := IdKey(id)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetLink] get id %v failed", id)
+	}
+
+	q := fmt.Sprintf(
+		"SELECT packet_conductor_id, endpoint_a_id, endpoint_b_id FROM links "+
+			"WHERE id = %d", id_key)
+
+	rows, err := runQ(q)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetLink] failed to run query: %s", q)
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("[GetLink] failed to find link with id %v", id)
+	}
+
+	var pkt_key, ep0_key, ep1_key int
+	err = rows.Scan(&pkt_key, &ep0_key, &ep1_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetLink] failed to read row result")
+	}
+
+	pkt, err := GetPacketConductor(pkt_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetLink] failed to get packet conductor")
+	}
+
+	ep0, err := GetId(ep0_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetLink] failed to get endpoint[1]")
+	}
+
+	ep1, err := GetId(ep1_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetLink] failed to get endpoint[0]")
+	}
+
+	lnk := addie.Link{}
+	lnk.Id = id
+	lnk.PacketConductor = *pkt
+	lnk.Endpoints[0] = addie.NetIfRef{*ep0, ""}
+	lnk.Endpoints[1] = addie.NetIfRef{*ep1, ""}
+
+	return &lnk, nil
 
 }

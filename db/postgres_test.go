@@ -241,6 +241,41 @@ func TestOneCreateDestroy(t *testing.T) {
 		t.Error("switch round trip failed for: Position")
 	}
 
+	//Add a link -----------------
+	lnk := addie.Link{}
+	//id
+	lnk.Name = "lnk"
+	lnk.Sys = "root"
+	lnk.Design = "caprica"
+	//packet conductor
+	lnk.Latency = 123
+	lnk.Capacity = 2468
+	//endpoints
+	lnk.Endpoints[0] = addie.NetIfRef{c.Id, ""}
+	lnk.Endpoints[1] = addie.NetIfRef{c.Id, ""}
+
+	err = InsertLink(lnk)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to insert link")
+	}
+
+	_lnk, err := GetLink(lnk.Id)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to get link")
+	}
+
+	if lnk.Id != _lnk.Id {
+		t.Error("link round trip failed for: Id")
+	}
+	if lnk.PacketConductor != _lnk.PacketConductor {
+		t.Error("link round trip failed for: PacketConductor")
+	}
+	if lnk.Endpoints != _lnk.Endpoints {
+		t.Error("link round trip failed for: Endpoints")
+	}
+
 	/*
 		err = endTx()
 		if err != nil {
