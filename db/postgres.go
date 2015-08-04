@@ -262,65 +262,129 @@ func DesignKey(name string) (int, error) {
 	return key, nil
 }
 
-func InsertComputer(c addie.Computer) error {
-
-	_, sys_id, err := SysKey(c.Design, c.Sys)
+func InsertId(id addie.Id) (int, error) {
+	_, sys_id, err := SysKey(id.Design, id.Sys)
 	if err != nil {
 		log.Println(err)
-		return fmt.Errorf("retrieving system '%s' failed", c.Sys)
+		return -1, fmt.Errorf("r[InsertId] retrieving system '%s' failed", id.Sys)
 	}
 
-	//id insert
 	q := fmt.Sprintf(
-		"INSERT INTO ids (name, sys_id) VALUES ('%s', %d)",
-		c.Name, sys_id)
-
-	_, err = runQ(q)
-	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[InsertComputer] id insert failed")
-	}
-
-	_, _, id_key, err := IdKey(c.Id)
-	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("Computer insert failed -- could not retrieve key")
-	}
-
-	//network_host insert
-	q = fmt.Sprintf(
-		"INSERT INTO network_hosts (id) VALUES (%d)", id_key)
-
-	_, err = runQ(q)
-	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[InsertComputer] network_host insert failed")
-	}
-
-	//pos insert
-	q = fmt.Sprintf(
-		"INSERT INTO positions (x, y, z) VALUES (%f, %f, %f) RETURNING id",
-		c.Position.X, c.Position.Y, c.Position.Z)
+		"INSERT INTO ids (name, sys_id) VALUES ('%s', %d) RETURNING id",
+		id.Name, sys_id)
 
 	rows, err := runQ(q)
 	if err != nil {
 		log.Println(err)
-		return fmt.Errorf("[InsertComputer] position insert failed")
+		return -1, fmt.Errorf("[InsertId] id insert failed")
+	}
+
+	if !rows.Next() {
+		return -1, fmt.Errorf("[InsertId] id readback failed")
+	}
+	var id_key int
+	err = rows.Scan(&id_key)
+	if err != nil {
+		log.Println(err)
+		return -1, fmt.Errorf("[InsertId] id readback scan failed")
+	}
+
+	return id_key, nil
+}
+
+func InsertNetworkHostByKey(id_key int) error {
+
+	q := fmt.Sprintf(
+		"INSERT INTO network_hosts (id) VALUES (%d)", id_key)
+
+	_, err := runQ(q)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertNetworkHostByKey] network_host insert failed")
+	}
+
+	return nil
+
+}
+
+func InsertPosition(p addie.Position) (int, error) {
+
+	q := fmt.Sprintf(
+		"INSERT INTO positions (x, y, z) VALUES (%f, %f, %f) RETURNING id",
+		p.X, p.Y, p.Z)
+
+	rows, err := runQ(q)
+	if err != nil {
+		log.Println(err)
+		return -1, fmt.Errorf("[InsertPosition] position insert failed")
 	}
 	if !rows.Next() {
 		log.Println(err)
-		return fmt.Errorf("[InsertComputer] pg RETURNING cursor did not return anything")
+		return -1, fmt.Errorf("[InsertPosition] pg RETURNING cursor did not return anything")
 	}
 
 	var pos_key int
 	err = rows.Scan(&pos_key)
 	if err != nil {
 		log.Println(err)
-		return fmt.Errorf("[InsertComputer] failed to read pg RETURNING row")
+		return -1, fmt.Errorf("[InsertPosition] failed to read pg RETURNING row")
+	}
+
+	return pos_key, nil
+}
+
+func InsertPacketConductor(p addie.PacketConductor) (int, error) {
+
+	q := fmt.Sprintf(
+		"INSERT INTO packet_conductors (capacity, latency) VALUES (%d, %d) RETURNING id",
+		p.Capacity, p.Latency)
+
+	rows, err := runQ(q)
+	if err != nil {
+		log.Println(err)
+		return -1, fmt.Errorf("[InsertPacketConductor] insert failed")
+	}
+	if !rows.Next() {
+		log.Println(err)
+		return -1, fmt.Errorf("[InsertPacketConductor] pg RETURNING cursor returned nil")
+	}
+
+	var pkt_key int
+	err = rows.Scan(&pkt_key)
+	if err != nil {
+		log.Println(err)
+		return -1, fmt.Errorf("[InsertPacketConductor] faild to read pg RETURNING row")
+	}
+
+	return pkt_key, nil
+
+}
+
+func InsertComputer(c addie.Computer) error {
+
+	//id insert
+	id_key, err := InsertId(c.Id)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertComputer] Id insert failed")
+	}
+
+	//network host insert
+	err = InsertNetworkHostByKey(id_key)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertComputer] Network Host insert failed")
+	}
+
+	//position insert
+	pos_key, err := InsertPosition(c.Position)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertComputer] Position insert failed")
 	}
 
 	//computer insert
-	q = fmt.Sprintf(
+	q := fmt.Sprintf(
 		"INSERT INTO computers (id, os, start_script, position_id) "+
 			"values (%d, '%s', '%s', %d)",
 		id_key, c.OS, c.Start_script, pos_key)
@@ -334,6 +398,54 @@ func InsertComputer(c addie.Computer) error {
 	return nil
 }
 
+func InsertRouter(r addie.Router) error {
+
+	//TODO: this is almost the exact same code as the beginning of ComputerInsert
+	//make an interface to combine this shizzzz
+
+	//id insert
+	id_key, err := InsertId(r.Id)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertRouter] Id insert failed")
+	}
+
+	//network host insert
+	err = InsertNetworkHostByKey(id_key)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertRouter] Network Host insert failed")
+	}
+
+	//position insert
+	pos_key, err := InsertPosition(r.Position)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertRouter] Position insert failed")
+	}
+
+	//packet conductor insert
+	pkt_key, err := InsertPacketConductor(r.PacketConductor)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertRouter] Packet conductor insert failed")
+	}
+
+	//router insert
+	q := fmt.Sprintf(
+		"INSERT INTO routers (id, packet_conductor_id, position_id) "+
+			"values (%d, %d, %d)",
+		id_key, pkt_key, pos_key)
+
+	_, err = runQ(q)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Error inserting Router '%s' intro the DB", r.Name)
+	}
+
+	return nil
+}
+
 func GetPosition(id int) (*addie.Position, error) {
 
 	q := fmt.Sprintf(
@@ -342,7 +454,7 @@ func GetPosition(id int) (*addie.Position, error) {
 	rows, err := runQ(q)
 	if err != nil {
 		log.Println(err)
-		return nil, fmt.Errorf("[GetPosition] query error")
+		return nil, fmt.Errorf("[GetPosition] query error: %s", q)
 	}
 
 	if !rows.Next() {
@@ -357,6 +469,31 @@ func GetPosition(id int) (*addie.Position, error) {
 	}
 
 	return &addie.Position{x, y, z}, nil
+
+}
+
+func GetPacketConductor(id int) (*addie.PacketConductor, error) {
+
+	q := fmt.Sprintf(
+		"SELECT capacity, latency FROM packet_conductors WHERE id = %d", id)
+
+	rows, err := runQ(q)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetPacketConductor] query error: %s", q)
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("[GetPacketConductor] id=%d does not exist", id)
+	}
+
+	var capacity, latency int
+	err = rows.Scan(&capacity, &latency)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetPacketConductor] error reading result row")
+	}
+
+	return &addie.PacketConductor{capacity, latency}, nil
 
 }
 
@@ -403,4 +540,53 @@ func GetComputer(id addie.Id) (*addie.Computer, error) {
 	c.Position = *pos
 
 	return &c, nil
+}
+
+func GetRouter(id addie.Id) (*addie.Router, error) {
+
+	_, _, id_key, err := IdKey(id)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetRouter] get id %v failed", id)
+	}
+
+	q := fmt.Sprintf(
+		"SELECT packet_conductor_id, position_id FROM routers WHERE id = %d", id_key)
+
+	rows, err := runQ(q)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetRouter] failed to run query: %s", q)
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("[GetRouter] Failed to find router with id %v", id)
+	}
+
+	var pkt_key, pos_key int
+	err = rows.Scan(&pkt_key, &pos_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetRouter] failed to read row result")
+	}
+
+	pos, err := GetPosition(pos_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetRouter] failed to get position")
+	}
+
+	pkt, err := GetPacketConductor(pkt_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetRouter] failed to get packet conductor")
+	}
+
+	rtr := addie.Router{}
+	rtr.Id = id
+	rtr.Interfaces = make(map[string]addie.Interface) //todo
+	rtr.PacketConductor = *pkt
+	rtr.Position = *pos
+
+	return &rtr, nil
+
 }

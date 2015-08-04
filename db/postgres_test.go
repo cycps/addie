@@ -125,6 +125,7 @@ func TestOneCreateDestroy(t *testing.T) {
 		t.Fatal("failed to create caprica.root")
 	}
 
+	//Add a computer ------------
 	c := addie.Computer{}
 	//Id
 	c.Name = "c"
@@ -150,23 +151,60 @@ func TestOneCreateDestroy(t *testing.T) {
 	}
 
 	if c.Name != _c.Name {
-		t.Error("round trip failed for: Name")
+		t.Error("computer round trip failed for: Name")
 	}
 	if c.Sys != _c.Sys {
-		t.Error("round trip failed for: Sys")
+		t.Error("computer round trip failed for: Sys")
 	}
 	if c.Design != _c.Design {
-		t.Error("round trip failed for: Design")
+		t.Error("computer round trip failed for: Design")
 	}
 	//TODO test interfaces
 	if c.Position != _c.Position {
-		t.Error("round trip failed for: Position")
+		t.Error("computer round trip failed for: Position")
 	}
 	if c.OS != _c.OS {
-		t.Error("round trip failed for: OS")
+		t.Error("computer round trip failed for: OS")
 	}
 	if c.Start_script != _c.Start_script {
-		t.Error("round trip failed for: Start_script")
+		t.Error("computer round trip failed for: Start_script")
+	}
+
+	//Add a router ------------
+	rtr := addie.Router{}
+	//Id
+	rtr.Name = "rtr"
+	rtr.Sys = "root"
+	rtr.Design = "caprica"
+	//Net Host
+	rtr.Interfaces = make(map[string]addie.Interface)
+	//PacketConductor
+	rtr.Latency = 47
+	rtr.Capacity = 1000
+	rtr.Position = addie.Position{4, 7, 4}
+
+	err = InsertRouter(rtr)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to insert router")
+	}
+
+	_rtr, err := GetRouter(addie.Id{"rtr", "root", "caprica"})
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to get router")
+	}
+
+	if rtr.Id != _rtr.Id {
+		t.Error("router round trip failed for: id")
+	}
+
+	if rtr.PacketConductor != _rtr.PacketConductor {
+		t.Error("router round trip failed for: packet conductor")
+	}
+
+	if rtr.Position != _rtr.Position {
+		t.Error("router round trip failed for: position")
 	}
 
 	/*
