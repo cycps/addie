@@ -590,3 +590,45 @@ func GetRouter(id addie.Id) (*addie.Router, error) {
 	return &rtr, nil
 
 }
+
+func InsertSwitch(s addie.Switch) error {
+
+	//id insert
+	id_key, err := InsertId(s.Id)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertSwitch] Id insert failed")
+	}
+
+	//packet conductor insert
+	pkt_key, err := InsertPacketConductor(s.PacketConductor)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertSwitch] Packet Conductor insert failed")
+	}
+
+	//position insert
+	pos_key, err := InsertPosition(s.Position)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertRouter] Position insert failed")
+	}
+
+	//switch insert
+	q := fmt.Sprintf(
+		"INSERT INTO switches (id, packet_conductor_id, position_id)  "+
+			"values (%d, %d, %d)",
+		id_key, pkt_key, pos_key)
+
+	_, err = runQ(q)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Error inserting Switch '%s' intro the DB", s.Name)
+	}
+
+	return nil
+}
+
+func GetSwitch(id addie.Id) (*addie.Switch, error) {
+
+}
