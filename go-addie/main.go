@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cycps/addie"
+	"github.com/cycps/addie/db"
 	"github.com/cycps/addie/protocol"
 	"github.com/julienschmidt/httprouter"
 	"log"
@@ -45,13 +46,92 @@ func unpack(r *http.Request, x interface{}) error {
 	return nil
 }
 
-func updateElement(id addie.Id, e addie.Identify) {
+func dbInsert(e addie.Identify) {
+	log.Printf("[dbInsert] %T '%s'", e, e.Identify())
+	switch t := e.(type) {
+	case addie.Computer:
+		c := e.(addie.Computer)
+		err := db.InsertComputer(c)
+		if err != nil {
+			log.Println(err)
+		}
+	case addie.Switch:
+		s := e.(addie.Switch)
+		err := db.InsertSwitch(s)
+		if err != nil {
+			log.Println(err)
+		}
+	case addie.Router:
+		r := e.(addie.Router)
+		err := db.InsertRouter(r)
+		if err != nil {
+			log.Println(err)
+		}
+	case addie.Link:
+		l := e.(addie.Link)
+		err := db.InsertLink(l)
+		if err != nil {
+			log.Println(err)
+		}
+		/*
+			case addie.Model:
+				m := e.(addie.Model)
+			case addie.Sensor:
+				s := e.(addie.Sensor)
+			case addie.Actuator:
+				a := e.(addie.Actuator)
+		*/
+	default:
+		log.Printf("[dbInsert] unkown or unsupported element type: %T \n", t)
+	}
 
-	design.Elements[e.Identify()] = e
+}
+
+func dbUpdate(e addie.Identify) {
+	log.Printf("[dbUpdate] %T '%s'", e, e.Identify())
+	switch t := e.(type) {
+	case addie.Computer:
+	case addie.Switch:
+	case addie.Router:
+	case addie.Model:
+	case addie.Sensor:
+	case addie.Actuator:
+	case addie.Link:
+	default:
+		log.Printf("[dbUpdate] unkown or unsupported element type: %T \n", t)
+	}
+
+}
+
+//func updateElement(id addie.Id, e addie.Identify) {
+func dedup(id addie.Id, e addie.Identify) {
+
+	//_, ok := design.Elements[e.Identify()]
+
+	//design.Elements[e.Identify()] = e
 	if e.Identify() != id {
 		log.Println("deleting ", id)
 		delete(design.Elements, id)
 	}
+
+	//collect updates and inserts, then do updates first as inserts
+	//may depend on updated data
+	//var updates, inserts []addie.Identify
+
+	/*
+		if !ok {
+			inserts = append(inserts, e)
+		} else {
+			updates = append(updates, e)
+		}
+
+		for _, u := range updates {
+			dbUpdate(u)
+		}
+		for _, i := range inserts {
+			dbInsert(i)
+		}
+	*/
 
 }
 
@@ -65,6 +145,18 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
+	var updates, inserts []addie.Identify
+
+	var place = func(e addie.Identify) {
+		_, ok := design.Elements[e.Identify()]
+		if !ok {
+			inserts = append(inserts, e)
+		} else {
+			updates = append(updates, e)
+		}
+		design.Elements[e.Identify()] = e
+	}
+
 	for _, u := range msg.Elements {
 
 		switch u.Type {
@@ -74,54 +166,67 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			if err != nil {
 				log.Println("unable to unmarshal computer")
 			}
-			updateElement(u.OID, c)
+			dedup(u.OID, c)
+			place(c)
 		case "Switch":
 			var s addie.Switch
 			err := json.Unmarshal(u.Element, &s)
 			if err != nil {
 				log.Println("unable to unmarshal switch")
 			}
-			updateElement(u.OID, s)
+			dedup(u.OID, s)
+			place(s)
 		case "Router":
 			var r addie.Router
 			err := json.Unmarshal(u.Element, &r)
 			if err != nil {
 				log.Println("unable to unmarshal router")
 			}
-			updateElement(u.OID, r)
+			dedup(u.OID, r)
+			place(r)
 		case "Model":
 			var m addie.Model
 			err := json.Unmarshal(u.Element, &m)
 			if err != nil {
 				log.Println("unable to unmarshal model")
 			}
-			updateElement(u.OID, m)
+			dedup(u.OID, m)
+			place(m)
 		case "Sensor":
 			var s addie.Sensor
 			err := json.Unmarshal(u.Element, &s)
 			if err != nil {
 				log.Println("unable to unmarshal sensor")
 			}
-			updateElement(u.OID, s)
+			dedup(u.OID, s)
+			place(s)
 		case "Actuator":
 			var a addie.Actuator
 			err := json.Unmarshal(u.Element, &a)
 			if err != nil {
 				log.Println("unable to unmarshal sensor")
 			}
-			updateElement(u.OID, a)
+			dedup(u.OID, a)
+			place(a)
 		case "Link":
 			var l addie.Link
 			err := json.Unmarshal(u.Element, &l)
 			if err != nil {
 				log.Println("unable to unmarshal link")
 			}
-			updateElement(u.OID, l)
+			dedup(u.OID, l)
+			place(l)
 		default:
 			log.Println("unkown element type: ", u.Type)
 		}
-		//TODO other unmarshallers go here
 
+	}
+
+	for _, u := range updates {
+		dbUpdate(u)
+	}
+	for _, i := range inserts {
+		dbInsert(i)
 	}
 
 	log.Println("\n", design.String())

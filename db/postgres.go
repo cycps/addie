@@ -76,22 +76,6 @@ func runQ(q string) (*sql.Rows, error) {
 	return rows, nil
 }
 
-/*
-func runC(q string) (sql.Result, error) {
-	err := dbPing()
-	if err != nil {
-		log.Println(err)
-		return nil, errors.New("failed to execute command -- error communicating with DB")
-	}
-	result, err := db.Exec(q)
-	if err != nil {
-		log.Println(err)
-		return nil, errors.New("Failed to run execute command")
-	}
-	return result, nil
-}
-*/
-
 func beginTx() error {
 	err := dbPing()
 	if err != nil {
@@ -842,20 +826,24 @@ func InsertLink(l addie.Link) error {
 	//endpoint0
 	_, _, ep0_key, err := IdKey(l.Endpoints[0].Id)
 	if err != nil {
+		log.Println(err)
 		return fmt.Errorf("[InsertLink] bad endpoint[0]")
 	}
 	if0_key, err := InterfaceKey(ep0_key, l.Endpoints[0].IfName)
 	if err != nil {
+		log.Println(err)
 		return fmt.Errorf("[InsertLink] bad endpoint[0] interface")
 	}
 
 	//endpoint1
 	_, _, ep1_key, err := IdKey(l.Endpoints[1].Id)
 	if err != nil {
+		log.Println(err)
 		return fmt.Errorf("[InsertLink] bad endpoint[1]")
 	}
 	if1_key, err := InterfaceKey(ep0_key, l.Endpoints[0].IfName)
 	if err != nil {
+		log.Println(err)
 		return fmt.Errorf("[InsertLink] bad endpoint[1] interface")
 	}
 
