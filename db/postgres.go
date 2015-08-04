@@ -251,6 +251,24 @@ func IdKey(id addie.Id) (int, int, int, error) {
 	return design_key, sys_key, id_key, nil
 }
 
+func InterfaceKey(host_id int, ifname string) (int, error) {
+
+	q := fmt.Sprintf(
+		"SELECT id FROM interfaces WHERE host_id = %d AND name = '%s'",
+		host_id, ifname)
+
+	key, err := getKey(q)
+	if err != nil {
+		log.Println(err)
+		return -1, fmt.Errorf(
+			"could not get key for interface hostid=%d, ifname=%s",
+			host_id, ifname)
+	}
+
+	return key, nil
+
+}
+
 func DesignKey(name string) (int, error) {
 
 	q := fmt.Sprintf("SELECT id FROM designs WHERE name = '%s'", name)
@@ -336,7 +354,8 @@ func InsertPosition(p addie.Position) (int, error) {
 func InsertPacketConductor(p addie.PacketConductor) (int, error) {
 
 	q := fmt.Sprintf(
-		"INSERT INTO packet_conductors (capacity, latency) VALUES (%d, %d) RETURNING id",
+		"INSERT INTO packet_conductors (capacity, latency) VALUES (%d, %d) "+
+			"RETURNING id",
 		p.Capacity, p.Latency)
 
 	rows, err := runQ(q)
@@ -346,7 +365,8 @@ func InsertPacketConductor(p addie.PacketConductor) (int, error) {
 	}
 	if !rows.Next() {
 		log.Println(err)
-		return -1, fmt.Errorf("[InsertPacketConductor] pg RETURNING cursor returned nil")
+		return -1, fmt.Errorf(
+			"[InsertPacketConductor] pg RETURNING cursor returned nil")
 	}
 
 	var pkt_key int
@@ -357,6 +377,63 @@ func InsertPacketConductor(p addie.PacketConductor) (int, error) {
 	}
 
 	return pkt_key, nil
+
+}
+
+func InsertInterface(host_id int, ifx addie.Interface) error {
+
+	pkt_id, err := InsertPacketConductor(ifx.PacketConductor)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertInterface] unable to insert packet conductor")
+	}
+
+	q := fmt.Sprintf(
+		"INSERT INTO interfaces (name, host_id, packet_conductor_id) "+
+			"VALUES ('%s', %d, %d)",
+		ifx.Name, host_id, pkt_id)
+
+	_, err = runQ(q)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[InsertInterface] insert failed")
+	}
+
+	return nil
+}
+
+func GetInterface(id int) (*addie.Interface, error) {
+
+	q := fmt.Sprintf(
+		"SELECT name, host_id, packet_conductor_id FROM interfaces WHERE id =%d", id)
+
+	rows, err := runQ(q)
+	if err != nil {
+		println(err)
+		return nil, fmt.Errorf("[GetInterface] error running query: %s", q)
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("[GetInterface] could not find id=%d", id)
+	}
+	var name string
+	var host_key, pkt_key int
+	err = rows.Scan(&name, &host_key, &pkt_key)
+	if err != nil {
+		println(err)
+		return nil, fmt.Errorf("[GetInterface] error reading query result")
+	}
+
+	pkt, err := GetPacketConductor(pkt_key)
+	if err != nil {
+		println(err)
+		return nil, fmt.Errorf("[GetInterface] error getting packet conductor")
+	}
+
+	ifx := addie.Interface{}
+	ifx.Name = name
+	ifx.PacketConductor = *pkt
+
+	return &ifx, nil
 
 }
 
@@ -381,6 +458,16 @@ func InsertComputer(c addie.Computer) error {
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("[InsertComputer] Position insert failed")
+	}
+
+	//interfaces insert
+	for _, ifx := range c.Interfaces {
+		err = InsertInterface(id_key, ifx)
+		if err != nil {
+			log.Println(err)
+			return fmt.Errorf("[InsertComputer] Failed to insert interface %s",
+				ifx.Name)
+		}
 	}
 
 	//computer insert
@@ -752,21 +839,33 @@ func InsertLink(l addie.Link) error {
 		return fmt.Errorf("[InsertLink] Packet Conductor insert failed")
 	}
 
-	//endpoint1
+	//endpoint0
 	_, _, ep0_key, err := IdKey(l.Endpoints[0].Id)
 	if err != nil {
 		return fmt.Errorf("[InsertLink] bad endpoint[0]")
 	}
+	if0_key, err := InterfaceKey(ep0_key, l.Endpoints[0].IfName)
+	if err != nil {
+		return fmt.Errorf("[InsertLink] bad endpoint[0] interface")
+	}
 
+	//endpoint1
 	_, _, ep1_key, err := IdKey(l.Endpoints[1].Id)
 	if err != nil {
 		return fmt.Errorf("[InsertLink] bad endpoint[1]")
 	}
+	if1_key, err := InterfaceKey(ep0_key, l.Endpoints[0].IfName)
+	if err != nil {
+		return fmt.Errorf("[InsertLink] bad endpoint[1] interface")
+	}
 
 	q := fmt.Sprintf(
-		"INSERT INTO links (id, packet_conductor_id, endpoint_a_id, endpoint_b_id) "+
-			"values (%d, %d, %d, %d)",
-		id_key, pkt_key, ep0_key, ep1_key)
+		"INSERT INTO links "+
+			"(id, packet_conductor_id, "+
+			"endpoint_a_id, interface_a_id, "+
+			"endpoint_b_id, interface_b_id) "+
+			"VALUES (%d, %d, %d, %d, %d, %d)",
+		id_key, pkt_key, ep0_key, if0_key, ep1_key, if1_key)
 
 	_, err = runQ(q)
 	if err != nil {
@@ -787,8 +886,11 @@ func GetLink(id addie.Id) (*addie.Link, error) {
 	}
 
 	q := fmt.Sprintf(
-		"SELECT packet_conductor_id, endpoint_a_id, endpoint_b_id FROM links "+
-			"WHERE id = %d", id_key)
+		"SELECT packet_conductor_id, "+
+			"endpoint_a_id, interface_a_id, "+
+			"endpoint_b_id, interface_b_id "+
+			"FROM links WHERE id = %d",
+		id_key)
 
 	rows, err := runQ(q)
 	if err != nil {
@@ -799,8 +901,8 @@ func GetLink(id addie.Id) (*addie.Link, error) {
 		return nil, fmt.Errorf("[GetLink] failed to find link with id %v", id)
 	}
 
-	var pkt_key, ep0_key, ep1_key int
-	err = rows.Scan(&pkt_key, &ep0_key, &ep1_key)
+	var pkt_key, ep0_key, if0_key, ep1_key, if1_key int
+	err = rows.Scan(&pkt_key, &ep0_key, &if0_key, &ep1_key, &if1_key)
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("[GetLink] failed to read row result")
@@ -824,11 +926,23 @@ func GetLink(id addie.Id) (*addie.Link, error) {
 		return nil, fmt.Errorf("[GetLink] failed to get endpoint[0]")
 	}
 
+	if0, err := GetInterface(if0_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetLink] failed to get endpoint[0] interface")
+	}
+
+	if1, err := GetInterface(if1_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetLink] failed to get endpoint[1] interface")
+	}
+
 	lnk := addie.Link{}
 	lnk.Id = id
 	lnk.PacketConductor = *pkt
-	lnk.Endpoints[0] = addie.NetIfRef{*ep0, ""}
-	lnk.Endpoints[1] = addie.NetIfRef{*ep1, ""}
+	lnk.Endpoints[0] = addie.NetIfRef{*ep0, if0.Name}
+	lnk.Endpoints[1] = addie.NetIfRef{*ep1, if1.Name}
 
 	return &lnk, nil
 

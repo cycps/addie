@@ -133,6 +133,11 @@ func TestOneCreateDestroy(t *testing.T) {
 	c.Design = "caprica"
 	//NetHost
 	c.Interfaces = make(map[string]addie.Interface)
+	ifx := addie.Interface{}
+	ifx.Name = "eth0"
+	ifx.Capacity = 345
+	ifx.Latency = 2
+	c.Interfaces["eth0"] = ifx
 	//Comptuer
 	c.Position = addie.Position{0, 0, 0}
 	c.OS = "Ubuntu-15.04"
@@ -251,8 +256,8 @@ func TestOneCreateDestroy(t *testing.T) {
 	lnk.Latency = 123
 	lnk.Capacity = 2468
 	//endpoints
-	lnk.Endpoints[0] = addie.NetIfRef{c.Id, ""}
-	lnk.Endpoints[1] = addie.NetIfRef{c.Id, ""}
+	lnk.Endpoints[0] = addie.NetIfRef{c.Id, "eth0"}
+	lnk.Endpoints[1] = addie.NetIfRef{c.Id, "eth0"}
 
 	err = InsertLink(lnk)
 	if err != nil {
@@ -273,6 +278,7 @@ func TestOneCreateDestroy(t *testing.T) {
 		t.Error("link round trip failed for: PacketConductor")
 	}
 	if lnk.Endpoints != _lnk.Endpoints {
+		t.Log("%v != %v", lnk.Endpoints, _lnk.Endpoints)
 		t.Error("link round trip failed for: Endpoints")
 	}
 
