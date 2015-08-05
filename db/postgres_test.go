@@ -205,7 +205,7 @@ func addRouterTest(t *testing.T) addie.Router {
 		t.Fatal("router round trip failed for: position")
 	}
 
-	return rtr
+	return *_rtr
 }
 
 func modifyRouterTest(t *testing.T, r addie.Router) addie.Router {
@@ -239,6 +239,76 @@ func modifyRouterTest(t *testing.T, r addie.Router) addie.Router {
 	return *_r
 }
 
+func addSwitchTest(t *testing.T) addie.Switch {
+
+	sw := addie.Switch{}
+	//Id
+	sw.Name = "sw"
+	sw.Sys = "root"
+	sw.Design = "caprica"
+	//PacketConductor
+	sw.Latency = 74
+	sw.Capacity = 100000
+	sw.Position = addie.Position{100, 100, 20}
+
+	err := CreateSwitch(sw)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to insert switch")
+	}
+
+	_sw, err := ReadSwitch(sw.Id)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to get switch")
+	}
+
+	if sw.Id != _sw.Id {
+		t.Fatal("router round trip failed for: Id")
+	}
+
+	if sw.PacketConductor != _sw.PacketConductor {
+		t.Fatal("switch round trip failed for: Packet Conductor")
+	}
+	if sw.Position != _sw.Position {
+		t.Fatal("switch round trip failed for: Position")
+	}
+
+	return *_sw
+
+}
+
+func modifySwitchTest(t *testing.T, s addie.Switch) addie.Switch {
+
+	key, err := ReadIdKey(s.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	u := s
+	u.Name = "olympic"
+	u.Latency = 567
+	u.Capacity = 987
+
+	_, err = UpdateSwitch(s.Id, u)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_s, err := ReadSwitchByKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !(u == *_s) {
+		t.Log(u)
+		t.Log(_s)
+		t.Fatal("switch update failed")
+	}
+
+	return *_s
+}
+
 func TestOneCreateDestroyUpdate(t *testing.T) {
 
 	err := CreateDesign("caprica")
@@ -268,39 +338,8 @@ func TestOneCreateDestroyUpdate(t *testing.T) {
 	r := addRouterTest(t)
 	modifyRouterTest(t, r)
 
-	//Add a switch ---------------
-	sw := addie.Switch{}
-	//Id
-	sw.Name = "sw"
-	sw.Sys = "root"
-	sw.Design = "caprica"
-	//PacketConductor
-	sw.Latency = 74
-	sw.Capacity = 100000
-	sw.Position = addie.Position{100, 100, 20}
-
-	err = CreateSwitch(sw)
-	if err != nil {
-		t.Log(err)
-		t.Fatal("failed to insert switch")
-	}
-
-	_sw, err := ReadSwitch(sw.Id)
-	if err != nil {
-		t.Log(err)
-		t.Fatal("failed to get switch")
-	}
-
-	if sw.Id != _sw.Id {
-		t.Fatal("router round trip failed for: Id")
-	}
-
-	if sw.PacketConductor != _sw.PacketConductor {
-		t.Fatal("switch round trip failed for: Packet Conductor")
-	}
-	if sw.Position != _sw.Position {
-		t.Fatal("switch round trip failed for: Position")
-	}
+	s := addSwitchTest(t)
+	modifySwitchTest(t, s)
 
 	//Add a link -----------------
 	lnk := addie.Link{}

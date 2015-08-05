@@ -1065,15 +1065,15 @@ func CreateSwitch(s addie.Switch) error {
 	return nil
 }
 
-func ReadSwitch(id addie.Id) (*addie.Switch, error) {
+func ReadSwitchByKey(key int) (*addie.Switch, error) {
 
-	id_key, err := ReadIdKey(id)
+	id, err := ReadId(key)
 	if err != nil {
 		return nil, readFailure(err)
 	}
 
 	q := fmt.Sprintf(
-		"SELECT packet_conductor_id, position_id FROM switches WHERE id = %d", id_key)
+		"SELECT packet_conductor_id, position_id FROM switches WHERE id = %d", key)
 
 	rows, err := runQ(q)
 	defer safeClose(rows)
@@ -1101,11 +1101,58 @@ func ReadSwitch(id addie.Id) (*addie.Switch, error) {
 	}
 
 	sw := addie.Switch{}
-	sw.Id = id
+	sw.Id = *id
 	sw.PacketConductor = *pkt
 	sw.Position = *pos
 
 	return &sw, nil
+
+}
+
+func ReadSwitch(id addie.Id) (*addie.Switch, error) {
+
+	key, err := ReadIdKey(id)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	return ReadSwitchByKey(key)
+}
+
+func UpdateSwitch(oid addie.Id, s addie.Switch) (int, error) {
+
+	key, err := UpdateId(oid, s.Id)
+	if err != nil {
+		return -1, updateFailure(err)
+	}
+
+	q := fmt.Sprintf("SELECT packet_conductor_id, position_id FROM switches "+
+		"WHERE id = %d", key)
+
+	rows, err := runQ(q)
+	if err != nil {
+		return key, selectFailure(err)
+	}
+	if !rows.Next() {
+		return key, emptyReadFailure()
+	}
+	var pos_key, pkt_key int
+	err = rows.Scan(&pkt_key, &pos_key)
+	if err != nil {
+		return key, scanFailure(err)
+	}
+
+	_, err = UpdatePosition(pos_key, s.Position)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	_, err = UpdatePacketConductor(pkt_key, s.PacketConductor)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	return key, nil
 
 }
 
