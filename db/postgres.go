@@ -532,6 +532,7 @@ func UpdateInterface(host_id int, old addie.Interface, ifx addie.Interface) erro
 		host_id, old.Name)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		return selectFailure(err)
 	}
@@ -858,6 +859,7 @@ func UpdateComputer(oid addie.Id, old addie.Computer, c addie.Computer) (int, er
 
 	q := fmt.Sprintf("SELECT position_id FROM computers WHERE id = %d", key)
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		return key, selectFailure(err)
 	}
@@ -1053,6 +1055,7 @@ func UpdateRouter(oid addie.Id, old addie.Router, r addie.Router) (int, error) {
 		"WHERE id = %d", key)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		return key, selectFailure(err)
 	}
@@ -1185,6 +1188,7 @@ func UpdateSwitch(oid addie.Id, old addie.Switch, s addie.Switch) (int, error) {
 		"WHERE id = %d", key)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		return key, selectFailure(err)
 	}
