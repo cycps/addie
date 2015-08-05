@@ -185,7 +185,6 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		case "Computer":
 			var c addie.Computer
 			err := json.Unmarshal(u.Element, &c)
-			log.Println(c)
 			if err != nil {
 				log.Println("unable to unmarshal computer")
 			}
