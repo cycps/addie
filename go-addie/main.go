@@ -85,16 +85,23 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 	log.Printf("[dbUpdate] %T '%s'", e, e.Identify())
 	var err error = nil
 
+	old, ok := design.Elements[oid]
+	if !ok {
+		log.Printf("[Update] bad oid %v\n", oid)
+		return
+	}
+
+	//todo perform check old.(type) conversion
 	switch t := e.(type) {
 	case addie.Computer:
 		c := e.(addie.Computer)
-		_, err = db.UpdateComputer(oid, c)
+		_, err = db.UpdateComputer(oid, old.(addie.Computer), c)
 	case addie.Switch:
 		s := e.(addie.Switch)
 		_, err = db.UpdateSwitch(oid, s)
 	case addie.Router:
 		r := e.(addie.Router)
-		_, err = db.UpdateRouter(oid, r)
+		_, err = db.UpdateRouter(oid, old.(addie.Router), r)
 	case addie.Link:
 		l := e.(addie.Link)
 		_, err = db.UpdateLink(oid, l)
@@ -170,7 +177,6 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			updates = append(updates, e)
 			update_oids = append(update_oids, oid)
 		}
-		design.Elements[e.Identify()] = e
 	}
 
 	for _, u := range msg.Elements {
@@ -241,9 +247,11 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	for i, u := range updates {
 		dbUpdate(update_oids[i], u)
+		design.Elements[u.Identify()] = u
 	}
 	for _, c := range creates {
 		dbCreate(c)
+		design.Elements[c.Identify()] = c
 	}
 
 	log.Println("\n", design.String())

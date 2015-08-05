@@ -524,6 +524,38 @@ func CreateInterface(host_id int, ifx addie.Interface) error {
 	return nil
 }
 
+func UpdateInterface(host_id int, old addie.Interface, ifx addie.Interface) error {
+
+	q := fmt.Sprintf(
+		"SELECT id, packet_conductor_id FROM interfaces "+
+			"WHERE host_id = %d AND name = '%s'",
+		host_id, old.Name)
+
+	rows, err := runQ(q)
+	if err != nil {
+		return selectFailure(err)
+	}
+	var key, pkt_key int
+	err = rows.Scan(&key, &pkt_key)
+	if err != nil {
+		return scanFailure(err)
+	}
+
+	_, err = UpdatePacketConductor(pkt_key, ifx.PacketConductor)
+	if err != nil {
+		return updateFailure(err)
+	}
+
+	q = fmt.Sprintf(
+		"UPDATE interfaces SET name ='%s' WHERE id = %d", ifx.Name, key)
+	err = runC(q)
+	if err != nil {
+		return updateFailure(err)
+	}
+
+	return nil
+}
+
 func ReadInterface(id int) (*addie.Interface, error) {
 
 	q := fmt.Sprintf(
@@ -625,23 +657,24 @@ func CreateNetworkHostByKey(id_key int) error {
 
 }
 
-func UpdateNetworkHost(oid addie.Id, h addie.NetHost) (int, error) {
+func UpdateNetworkHost(oid addie.Id, old addie.NetHost, h addie.NetHost) (int, error) {
 
 	key, err := UpdateId(oid, h.Id)
 	if err != nil {
 		return -1, updateFailure(err)
 	}
 
-	q := fmt.Sprintf("DELETE FROM interfaces WHERE host_id = %d", key)
-	err = runC(q)
-	if err != nil {
-		return key, deleteFailure(err)
-	}
-
-	for _, v := range h.Interfaces {
-		err = CreateInterface(key, v)
-		if err != nil {
-			return key, createFailure(err)
+	for k, v := range h.Interfaces {
+		_v, ok := old.Interfaces[k]
+		if ok && _v == v {
+			log.Printf("ifx %v == %v", _v, v)
+			continue
+		} else if ok && _v != v {
+			log.Printf("ifx % %v --> %v", _v, v)
+			UpdateInterface(key, _v, v)
+		} else {
+			log.Printf("ifx + %v", v)
+			CreateInterface(key, v)
 		}
 	}
 
@@ -816,9 +849,9 @@ func CreateComputer(c addie.Computer) error {
 	return nil
 }
 
-func UpdateComputer(oid addie.Id, c addie.Computer) (int, error) {
+func UpdateComputer(oid addie.Id, old addie.Computer, c addie.Computer) (int, error) {
 
-	key, err := UpdateNetworkHost(oid, c.NetHost)
+	key, err := UpdateNetworkHost(oid, old.NetHost, c.NetHost)
 	if err != nil {
 		return -1, updateFailure(err)
 	}
@@ -1004,9 +1037,9 @@ func ReadRouter(id addie.Id) (*addie.Router, error) {
 	return ReadRouterByKey(key)
 }
 
-func UpdateRouter(oid addie.Id, r addie.Router) (int, error) {
+func UpdateRouter(oid addie.Id, old addie.Router, r addie.Router) (int, error) {
 
-	key, err := UpdateNetworkHost(oid, r.NetHost)
+	key, err := UpdateNetworkHost(oid, old.NetHost, r.NetHost)
 	if err != nil {
 		return -1, updateFailure(err)
 	}

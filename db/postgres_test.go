@@ -149,7 +149,7 @@ func modifyComputerTest(t *testing.T, c addie.Computer) addie.Computer {
 		d.Interfaces[k] = v
 	}
 
-	_, err = UpdateComputer(c.Id, d)
+	_, err = UpdateComputer(c.Id, c, d)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to update computer")
@@ -223,7 +223,7 @@ func modifyRouterTest(t *testing.T, r addie.Router) addie.Router {
 	s.Latency = 222
 	s.Capacity = 333
 
-	_, err = UpdateRouter(r.Id, s)
+	_, err = UpdateRouter(r.Id, r, s)
 	if err != nil {
 		t.Fatal(err)
 	}
