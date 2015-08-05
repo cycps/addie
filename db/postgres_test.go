@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-func TestGetDesigns(t *testing.T) {
+func TestReadDesigns(t *testing.T) {
 
-	designs, err := GetDesigns()
+	designs, err := ReadDesigns()
 	if err != nil {
 		t.Error(err)
 	}
@@ -23,12 +23,12 @@ func TestGetDesigns(t *testing.T) {
 
 func TestDesignCreateDestroy(t *testing.T) {
 
-	err := InsertDesign("caprica")
+	err := CreateDesign("caprica")
 	if err != nil {
 		t.Error("failed to create caprica")
 	}
 
-	designs, err := GetDesigns()
+	designs, err := ReadDesigns()
 	if err != nil {
 		t.Error(err)
 	}
@@ -37,12 +37,12 @@ func TestDesignCreateDestroy(t *testing.T) {
 		t.Error("caprica has not been created")
 	}
 
-	err = TrashDesign("caprica")
+	err = DeleteDesign("caprica")
 	if err != nil {
 		t.Error("failed to trash caprica")
 	}
 
-	designs, err = GetDesigns()
+	designs, err = ReadDesigns()
 	if err != nil {
 		t.Error(err)
 	}
@@ -55,12 +55,12 @@ func TestDesignCreateDestroy(t *testing.T) {
 
 func TestSysCreateDestroy(t *testing.T) {
 
-	err := InsertDesign("caprica")
+	err := CreateDesign("caprica")
 	if err != nil {
 		t.Error("failed to create caprica")
 	}
 
-	designs, err := GetDesigns()
+	designs, err := ReadDesigns()
 	if err != nil {
 		t.Error(err)
 	}
@@ -69,21 +69,21 @@ func TestSysCreateDestroy(t *testing.T) {
 		t.Error("caprica has not been created")
 	}
 
-	_, err = InsertSystem("caprica", "root")
+	_, err = CreateSystem("caprica", "root")
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = SysKey("caprica", "root")
+	_, err = ReadSysKey("caprica", "root")
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = TrashDesign("caprica")
+	err = DeleteDesign("caprica")
 	if err != nil {
 		t.Error("failed to trash caprica")
 	}
 
-	designs, err = GetDesigns()
+	designs, err = ReadDesigns()
 	if err != nil {
 		t.Error(err)
 	}
@@ -113,13 +113,13 @@ func addComputerTest(t *testing.T) addie.Computer {
 	c.OS = "Ubuntu-15.04"
 	c.Start_script = "make_muffins.sh"
 
-	err := InsertComputer(c)
+	err := CreateComputer(c)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to insert computer")
 	}
 
-	_c, err := GetComputer(addie.Id{"c", "root", "caprica"})
+	_c, err := ReadComputer(addie.Id{"c", "root", "caprica"})
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to retrieve computer")
@@ -135,7 +135,7 @@ func addComputerTest(t *testing.T) addie.Computer {
 
 func modifyComputerTest(t *testing.T, c addie.Computer) addie.Computer {
 
-	key, err := IdKey(c.Id)
+	key, err := ReadIdKey(c.Id)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("computer to modify does not exist")
@@ -152,7 +152,7 @@ func modifyComputerTest(t *testing.T, c addie.Computer) addie.Computer {
 		t.Fatal("failed to update computer")
 	}
 
-	_c, err := GetComputerByKey(key)
+	_c, err := ReadComputerByKey(key)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to retrieve updated computer")
@@ -169,7 +169,7 @@ func modifyComputerTest(t *testing.T, c addie.Computer) addie.Computer {
 
 func TestOneCreateDestroyUpdate(t *testing.T) {
 
-	err := InsertDesign("caprica")
+	err := CreateDesign("caprica")
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to create caprica")
@@ -177,14 +177,14 @@ func TestOneCreateDestroyUpdate(t *testing.T) {
 
 	//ghetto transaction
 	defer func() {
-		err = TrashDesign("caprica") //on cascade delete cleans up everything
+		err = DeleteDesign("caprica") //on cascade delete cleans up everything
 		if err != nil {
 			t.Log(err)
 			t.Fatal("failed to trash caprica")
 		}
 	}()
 
-	_, err = InsertSystem("caprica", "root")
+	_, err = CreateSystem("caprica", "root")
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to create caprica.root")
@@ -206,13 +206,13 @@ func TestOneCreateDestroyUpdate(t *testing.T) {
 	rtr.Capacity = 1000
 	rtr.Position = addie.Position{4, 7, 4}
 
-	err = InsertRouter(rtr)
+	err = CreateRouter(rtr)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to insert router")
 	}
 
-	_rtr, err := GetRouter(addie.Id{"rtr", "root", "caprica"})
+	_rtr, err := ReadRouter(addie.Id{"rtr", "root", "caprica"})
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to get router")
@@ -241,13 +241,13 @@ func TestOneCreateDestroyUpdate(t *testing.T) {
 	sw.Capacity = 100000
 	sw.Position = addie.Position{100, 100, 20}
 
-	err = InsertSwitch(sw)
+	err = CreateSwitch(sw)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to insert switch")
 	}
 
-	_sw, err := GetSwitch(sw.Id)
+	_sw, err := ReadSwitch(sw.Id)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to get switch")
@@ -277,13 +277,13 @@ func TestOneCreateDestroyUpdate(t *testing.T) {
 	lnk.Endpoints[0] = addie.NetIfRef{c.Id, "eth0"}
 	lnk.Endpoints[1] = addie.NetIfRef{c.Id, "eth0"}
 
-	err = InsertLink(lnk)
+	err = CreateLink(lnk)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to insert link")
 	}
 
-	_lnk, err := GetLink(lnk.Id)
+	_lnk, err := ReadLink(lnk.Id)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to get link")
