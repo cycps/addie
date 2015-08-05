@@ -497,6 +497,7 @@ func ReadInterfaceKey(host_id int, ifname string) (int, error) {
 
 	key, err := getKey(q)
 	if err != nil {
+		log.Printf("hid=%d, if=%s", host_id, ifname)
 		return -1, selectFailure(err)
 	}
 
@@ -1387,7 +1388,7 @@ func UpdateLink(oid addie.Id, l addie.Link) (int, error) {
 	if err != nil {
 		return key, readFailure(err)
 	}
-	i1, err := ReadInterfaceKey(e1, l.Endpoints[0].IfName)
+	i1, err := ReadInterfaceKey(e1, l.Endpoints[1].IfName)
 	if err != nil {
 		return key, readFailure(err)
 	}

@@ -123,39 +123,6 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 
 }
 
-//func updateElement(id addie.Id, e addie.Identify) {
-func dedup(id addie.Id, e addie.Identify) {
-
-	//_, ok := design.Elements[e.Identify()]
-
-	//design.Elements[e.Identify()] = e
-	if e.Identify() != id {
-		log.Println("deleting ", id)
-		log.Println("new-id ", e.Identify())
-		delete(design.Elements, id)
-	}
-
-	//collect updates and inserts, then do updates first as inserts
-	//may depend on updated data
-	//var updates, inserts []addie.Identify
-
-	/*
-		if !ok {
-			inserts = append(inserts, e)
-		} else {
-			updates = append(updates, e)
-		}
-
-		for _, u := range updates {
-			dbUpdate(u)
-		}
-		for _, i := range inserts {
-			dbInsert(i)
-		}
-	*/
-
-}
-
 func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	//unpack the message
@@ -166,17 +133,35 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
-	var updates, creates []addie.Identify
-	var update_oids []addie.Id
+	var new_nodes, new_links []addie.Identify
+	var changed_nodes, changed_links []addie.Identify
+	var changed_node_oids, changed_link_oids []addie.Id
+	var killList []addie.Id
 
 	var place = func(oid addie.Id, e addie.Identify) {
-		_, ok := design.Elements[e.Identify()]
-		if !ok {
-			creates = append(creates, e)
-		} else {
-			updates = append(updates, e)
-			update_oids = append(update_oids, oid)
+
+		if e.Identify() != oid {
+			killList = append(killList, oid)
 		}
+		_, ok := design.Elements[oid]
+		if !ok {
+			switch e.(type) {
+			case addie.Link:
+				new_links = append(new_links, e)
+			default:
+				new_nodes = append(new_nodes, e)
+			}
+		} else {
+			switch e.(type) {
+			case addie.Link:
+				changed_links = append(changed_links, e)
+				changed_link_oids = append(changed_link_oids, oid)
+			default:
+				changed_nodes = append(changed_nodes, e)
+				changed_node_oids = append(changed_node_oids, oid)
+			}
+		}
+
 	}
 
 	for _, u := range msg.Elements {
@@ -188,7 +173,6 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			if err != nil {
 				log.Println("unable to unmarshal computer")
 			}
-			dedup(u.OID, c)
 			place(u.OID, c)
 		case "Switch":
 			var s addie.Switch
@@ -196,7 +180,6 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			if err != nil {
 				log.Println("unable to unmarshal switch")
 			}
-			dedup(u.OID, s)
 			place(u.OID, s)
 		case "Router":
 			var r addie.Router
@@ -204,7 +187,6 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			if err != nil {
 				log.Println("unable to unmarshal router")
 			}
-			dedup(u.OID, r)
 			place(u.OID, r)
 		case "Model":
 			var m addie.Model
@@ -212,7 +194,6 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			if err != nil {
 				log.Println("unable to unmarshal model")
 			}
-			dedup(u.OID, m)
 			place(u.OID, m)
 		case "Sensor":
 			var s addie.Sensor
@@ -220,7 +201,6 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			if err != nil {
 				log.Println("unable to unmarshal sensor")
 			}
-			dedup(u.OID, s)
 			place(u.OID, s)
 		case "Actuator":
 			var a addie.Actuator
@@ -228,7 +208,6 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			if err != nil {
 				log.Println("unable to unmarshal sensor")
 			}
-			dedup(u.OID, a)
 			place(u.OID, a)
 		case "Link":
 			var l addie.Link
@@ -236,7 +215,6 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			if err != nil {
 				log.Println("unable to unmarshal link")
 			}
-			dedup(u.OID, l)
 			place(u.OID, l)
 		default:
 			log.Println("unkown element type: ", u.Type)
@@ -244,13 +222,27 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	}
 
-	for i, u := range updates {
-		dbUpdate(update_oids[i], u)
+	for i, u := range changed_nodes {
+		dbUpdate(changed_node_oids[i], u)
 		design.Elements[u.Identify()] = u
 	}
-	for _, c := range creates {
+	for _, c := range new_nodes {
 		dbCreate(c)
 		design.Elements[c.Identify()] = c
+	}
+
+	for i, u := range changed_links {
+		dbUpdate(changed_link_oids[i], u)
+		design.Elements[u.Identify()] = u
+	}
+
+	for _, c := range new_links {
+		dbCreate(c)
+		design.Elements[c.Identify()] = c
+	}
+
+	for _, k := range killList {
+		delete(design.Elements, k)
 	}
 
 	//log.Println("\n", design.String())
