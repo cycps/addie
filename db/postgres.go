@@ -668,13 +668,13 @@ func UpdateNetworkHost(oid addie.Id, old addie.NetHost, h addie.NetHost) (int, e
 	for k, v := range h.Interfaces {
 		_v, ok := old.Interfaces[k]
 		if ok && _v == v {
-			log.Printf("ifx %v == %v", _v, v)
+			//log.Printf("ifx %v == %v", _v, v)
 			continue
 		} else if ok && _v != v {
-			log.Printf("ifx % %v --> %v", _v, v)
+			//log.Printf("ifx % %v --> %v", _v, v)
 			UpdateInterface(key, _v, v)
 		} else {
-			log.Printf("ifx + %v", v)
+			//log.Printf("ifx + %v", v)
 			CreateInterface(key, v)
 		}
 	}

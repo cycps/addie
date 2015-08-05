@@ -253,7 +253,7 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		design.Elements[c.Identify()] = c
 	}
 
-	log.Println("\n", design.String())
+	//log.Println("\n", design.String())
 
 	//send response
 	w.WriteHeader(http.StatusOK)
