@@ -293,7 +293,7 @@ func modifySwitchTest(t *testing.T, s addie.Switch) addie.Switch {
 	u.Latency = 567
 	u.Capacity = 987
 
-	_, err = UpdateSwitch(s.Id, u)
+	_, err = UpdateSwitch(s.Id, s, u)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +303,7 @@ func modifySwitchTest(t *testing.T, s addie.Switch) addie.Switch {
 		t.Fatal(err)
 	}
 
-	if !(u == *_s) {
+	if !(u.Equals(_s)) {
 		t.Log(u)
 		t.Log(_s)
 		t.Fatal("switch update failed")

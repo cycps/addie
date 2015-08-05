@@ -1017,9 +1017,14 @@ func ReadRouterByKey(key int) (*addie.Router, error) {
 		return nil, readFailure(err)
 	}
 
+	ifs, err := ReadHostInterfaces(key)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
 	rtr := addie.Router{}
 	rtr.Id = *id
-	rtr.Interfaces = make(map[string]addie.Interface) //todo
+	rtr.Interfaces = *ifs
 	rtr.PacketConductor = *pkt
 	rtr.Position = *pos
 
@@ -1078,7 +1083,7 @@ func UpdateRouter(oid addie.Id, old addie.Router, r addie.Router) (int, error) {
 func CreateSwitch(s addie.Switch) error {
 
 	//id insert
-	id_key, err := CreateId(s.Id)
+	id_key, err := CreateNetworkHost(s.NetHost)
 	if err != nil {
 		return createFailure(err)
 	}
@@ -1144,8 +1149,14 @@ func ReadSwitchByKey(key int) (*addie.Switch, error) {
 		return nil, readFailure(err)
 	}
 
+	ifs, err := ReadHostInterfaces(key)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
 	sw := addie.Switch{}
 	sw.Id = *id
+	sw.Interfaces = *ifs
 	sw.PacketConductor = *pkt
 	sw.Position = *pos
 
@@ -1163,9 +1174,9 @@ func ReadSwitch(id addie.Id) (*addie.Switch, error) {
 	return ReadSwitchByKey(key)
 }
 
-func UpdateSwitch(oid addie.Id, s addie.Switch) (int, error) {
+func UpdateSwitch(oid addie.Id, old addie.Switch, s addie.Switch) (int, error) {
 
-	key, err := UpdateId(oid, s.Id)
+	key, err := UpdateNetworkHost(oid, old.NetHost, s.NetHost)
 	if err != nil {
 		return -1, updateFailure(err)
 	}
@@ -1231,7 +1242,7 @@ func CreateLink(l addie.Link) error {
 	if err != nil {
 		return readFailure(err)
 	}
-	if1_key, err := ReadInterfaceKey(ep0_key, l.Endpoints[0].IfName)
+	if1_key, err := ReadInterfaceKey(ep1_key, l.Endpoints[1].IfName)
 	if err != nil {
 		return readFailure(err)
 	}

@@ -69,12 +69,20 @@ type PacketConductor struct {
 }
 
 type Switch struct {
-	Id
+	NetHost
 	PacketConductor
 	Position Position
 }
 
 func (s Switch) Identify() Id { return s.Id }
+
+func (s *Switch) Equals(x *Switch) bool {
+
+	return s.NetHost.Equals(&x.NetHost) &&
+		s.Position == x.Position &&
+		s.PacketConductor == x.PacketConductor
+
+}
 
 type Router struct {
 	NetHost

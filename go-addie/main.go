@@ -98,7 +98,7 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 		_, err = db.UpdateComputer(oid, old.(addie.Computer), c)
 	case addie.Switch:
 		s := e.(addie.Switch)
-		_, err = db.UpdateSwitch(oid, s)
+		_, err = db.UpdateSwitch(oid, old.(addie.Switch), s)
 	case addie.Router:
 		r := e.(addie.Router)
 		_, err = db.UpdateRouter(oid, old.(addie.Router), r)
