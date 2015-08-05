@@ -1209,9 +1209,9 @@ func CreateLink(l addie.Link) error {
 
 }
 
-func ReadLink(id addie.Id) (*addie.Link, error) {
+func ReadLinkByKey(key int) (*addie.Link, error) {
 
-	id_key, err := ReadIdKey(id)
+	id, err := ReadId(key)
 	if err != nil {
 		return nil, readFailure(err)
 	}
@@ -1221,7 +1221,7 @@ func ReadLink(id addie.Id) (*addie.Link, error) {
 			"endpoint_a_id, interface_a_id, "+
 			"endpoint_b_id, interface_b_id "+
 			"FROM links WHERE id = %d",
-		id_key)
+		key)
 
 	rows, err := runQ(q)
 	defer safeClose(rows)
@@ -1264,11 +1264,84 @@ func ReadLink(id addie.Id) (*addie.Link, error) {
 	}
 
 	lnk := addie.Link{}
-	lnk.Id = id
+	lnk.Id = *id
 	lnk.PacketConductor = *pkt
 	lnk.Endpoints[0] = addie.NetIfRef{*ep0, if0.Name}
 	lnk.Endpoints[1] = addie.NetIfRef{*ep1, if1.Name}
 
 	return &lnk, nil
 
+}
+
+func ReadLink(id addie.Id) (*addie.Link, error) {
+
+	key, err := ReadIdKey(id)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	return ReadLinkByKey(key)
+}
+
+func UpdateLink(oid addie.Id, l addie.Link) (int, error) {
+
+	key, err := UpdateId(oid, l.Id)
+	if err != nil {
+		return -1, updateFailure(err)
+	}
+
+	q := fmt.Sprintf("SELECT packet_conductor_id FROM links WHERE id = %d", key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+	if err != nil {
+		return key, selectFailure(err)
+	}
+	if !rows.Next() {
+		return key, emptyReadFailure()
+	}
+
+	var pkt_key int
+	err = rows.Scan(&pkt_key)
+	if err != nil {
+		return key, scanFailure(err)
+	}
+
+	//packet conductor
+	_, err = UpdatePacketConductor(pkt_key, l.PacketConductor)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	//endpoints
+	e0, err := ReadIdKey(l.Endpoints[0].Id)
+	if err != nil {
+		return key, readFailure(err)
+	}
+	e1, err := ReadIdKey(l.Endpoints[1].Id)
+	if err != nil {
+		return key, readFailure(err)
+	}
+
+	//interfaces
+	i0, err := ReadInterfaceKey(e0, l.Endpoints[0].IfName)
+	if err != nil {
+		return key, readFailure(err)
+	}
+	i1, err := ReadInterfaceKey(e1, l.Endpoints[0].IfName)
+	if err != nil {
+		return key, readFailure(err)
+	}
+
+	q = fmt.Sprintf(
+		"UPDATE links SET "+
+			"endpoint_a_id = %d, interface_a_id = %d, "+
+			"endpoint_b_id = %d, interface_b_id = %d "+
+			"WHERE id = %d", e0, i0, e1, i1, key)
+	err = runC(q)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	return key, nil
 }

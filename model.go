@@ -104,6 +104,14 @@ type Link struct {
 
 func (l Link) Identify() Id { return l.Id }
 
+func (l *Link) Equals(x *Link) bool {
+
+	return l.Id == x.Id &&
+		l.PacketConductor == x.PacketConductor &&
+		l.Endpoints == x.Endpoints
+
+}
+
 //Physical---------------------------------------------------------------------
 
 type Model struct {

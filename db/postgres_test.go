@@ -309,6 +309,78 @@ func modifySwitchTest(t *testing.T, s addie.Switch) addie.Switch {
 	return *_s
 }
 
+func addLinkTest(t *testing.T, c addie.Computer) addie.Link {
+
+	lnk := addie.Link{}
+	//id
+	lnk.Name = "lnk"
+	lnk.Sys = "root"
+	lnk.Design = "caprica"
+	//packet conductor
+	lnk.Latency = 123
+	lnk.Capacity = 2468
+	//endpoints
+	lnk.Endpoints[0] = addie.NetIfRef{c.Id, "eth0"}
+	lnk.Endpoints[1] = addie.NetIfRef{c.Id, "eth0"}
+
+	err := CreateLink(lnk)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to insert link")
+	}
+
+	_lnk, err := ReadLink(lnk.Id)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to get link")
+	}
+
+	if lnk.Id != _lnk.Id {
+		t.Fatal("link round trip failed for: Id")
+	}
+	if lnk.PacketConductor != _lnk.PacketConductor {
+		t.Fatal("link round trip failed for: PacketConductor")
+	}
+	if lnk.Endpoints != _lnk.Endpoints {
+		t.Log("%v != %v", lnk.Endpoints, _lnk.Endpoints)
+		t.Fatal("link round trip failed for: Endpoints")
+	}
+
+	return lnk
+
+}
+
+func modifyLinkTest(t *testing.T, l addie.Link) addie.Link {
+	key, err := ReadIdKey(l.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m := l
+	m.Name = "helo"
+	m.Latency = 1234
+	m.Capacity = 4680
+
+	_, err = UpdateLink(l.Id, m)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_l, err := ReadLinkByKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !(m.Equals(_l)) {
+		t.Log(m)
+		t.Log(_l)
+		t.Fatal("link update failed")
+	}
+
+	return *_l
+
+}
+
 func TestOneCreateDestroyUpdate(t *testing.T) {
 
 	err := CreateDesign("caprica")
@@ -341,40 +413,6 @@ func TestOneCreateDestroyUpdate(t *testing.T) {
 	s := addSwitchTest(t)
 	modifySwitchTest(t, s)
 
-	//Add a link -----------------
-	lnk := addie.Link{}
-	//id
-	lnk.Name = "lnk"
-	lnk.Sys = "root"
-	lnk.Design = "caprica"
-	//packet conductor
-	lnk.Latency = 123
-	lnk.Capacity = 2468
-	//endpoints
-	lnk.Endpoints[0] = addie.NetIfRef{c.Id, "eth0"}
-	lnk.Endpoints[1] = addie.NetIfRef{c.Id, "eth0"}
-
-	err = CreateLink(lnk)
-	if err != nil {
-		t.Log(err)
-		t.Fatal("failed to insert link")
-	}
-
-	_lnk, err := ReadLink(lnk.Id)
-	if err != nil {
-		t.Log(err)
-		t.Fatal("failed to get link")
-	}
-
-	if lnk.Id != _lnk.Id {
-		t.Fatal("link round trip failed for: Id")
-	}
-	if lnk.PacketConductor != _lnk.PacketConductor {
-		t.Fatal("link round trip failed for: PacketConductor")
-	}
-	if lnk.Endpoints != _lnk.Endpoints {
-		t.Log("%v != %v", lnk.Endpoints, _lnk.Endpoints)
-		t.Fatal("link round trip failed for: Endpoints")
-	}
-
+	l := addLinkTest(t, c)
+	modifyLinkTest(t, l)
 }
