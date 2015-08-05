@@ -632,7 +632,18 @@ func UpdateNetworkHost(oid addie.Id, h addie.NetHost) (int, error) {
 		return -1, updateFailure(err)
 	}
 
-	//TODO: update the interfaces
+	q := fmt.Sprintf("DELETE FROM interfaces WHERE host_id = %d", key)
+	err = runC(q)
+	if err != nil {
+		return key, deleteFailure(err)
+	}
+
+	for _, v := range h.Interfaces {
+		err = CreateInterface(key, v)
+		if err != nil {
+			return key, createFailure(err)
+		}
+	}
 
 	return key, nil
 

@@ -145,6 +145,9 @@ func modifyComputerTest(t *testing.T, c addie.Computer) addie.Computer {
 	d.OS = "Kobol"
 	d.Name = "b"
 	d.Sys = "galactica"
+	for k, v := range c.Interfaces {
+		d.Interfaces[k] = v
+	}
 
 	_, err = UpdateComputer(c.Id, d)
 	if err != nil {

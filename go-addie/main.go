@@ -46,33 +46,23 @@ func unpack(r *http.Request, x interface{}) error {
 	return nil
 }
 
-func dbInsert(e addie.Identify) {
-	log.Printf("[dbInsert] %T '%s'", e, e.Identify())
+func dbCreate(e addie.Identify) {
+	log.Printf("[dbCreate] %T '%s'", e, e.Identify())
+	var err error = nil
+
 	switch t := e.(type) {
 	case addie.Computer:
 		c := e.(addie.Computer)
-		err := db.InsertComputer(c)
-		if err != nil {
-			log.Println(err)
-		}
+		err = db.CreateComputer(c)
 	case addie.Switch:
 		s := e.(addie.Switch)
-		err := db.InsertSwitch(s)
-		if err != nil {
-			log.Println(err)
-		}
+		err = db.CreateSwitch(s)
 	case addie.Router:
 		r := e.(addie.Router)
-		err := db.InsertRouter(r)
-		if err != nil {
-			log.Println(err)
-		}
+		err = db.CreateRouter(r)
 	case addie.Link:
 		l := e.(addie.Link)
-		err := db.InsertLink(l)
-		if err != nil {
-			log.Println(err)
-		}
+		err = db.CreateLink(l)
 		/*
 			case addie.Model:
 				m := e.(addie.Model)
@@ -82,23 +72,46 @@ func dbInsert(e addie.Identify) {
 				a := e.(addie.Actuator)
 		*/
 	default:
-		log.Printf("[dbInsert] unkown or unsupported element type: %T \n", t)
+		log.Printf("[dbCreate] unkown or unsupported element type: %T \n", t)
+	}
+
+	if err != nil {
+		log.Println(err)
 	}
 
 }
 
-func dbUpdate(e addie.Identify) {
+func dbUpdate(oid addie.Id, e addie.Identify) {
 	log.Printf("[dbUpdate] %T '%s'", e, e.Identify())
+	var err error = nil
+
 	switch t := e.(type) {
 	case addie.Computer:
+		c := e.(addie.Computer)
+		_, err = db.UpdateComputer(oid, c)
 	case addie.Switch:
+		s := e.(addie.Switch)
+		_, err = db.UpdateSwitch(oid, s)
 	case addie.Router:
-	case addie.Model:
-	case addie.Sensor:
-	case addie.Actuator:
+		r := e.(addie.Router)
+		_, err = db.UpdateRouter(oid, r)
 	case addie.Link:
+		l := e.(addie.Link)
+		_, err = db.UpdateLink(oid, l)
+		/*
+			case addie.Model:
+				m := e.(addie.Model)
+			case addie.Sensor:
+				s := e.(addie.Sensor)
+			case addie.Actuator:
+				a := e.(addie.Actuator)
+		*/
 	default:
 		log.Printf("[dbUpdate] unkown or unsupported element type: %T \n", t)
+	}
+
+	if err != nil {
+		log.Println(err)
 	}
 
 }
@@ -111,6 +124,7 @@ func dedup(id addie.Id, e addie.Identify) {
 	//design.Elements[e.Identify()] = e
 	if e.Identify() != id {
 		log.Println("deleting ", id)
+		log.Println("new-id ", e.Identify())
 		delete(design.Elements, id)
 	}
 
@@ -145,14 +159,16 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
-	var updates, inserts []addie.Identify
+	var updates, creates []addie.Identify
+	var update_oids []addie.Id
 
-	var place = func(e addie.Identify) {
+	var place = func(oid addie.Id, e addie.Identify) {
 		_, ok := design.Elements[e.Identify()]
 		if !ok {
-			inserts = append(inserts, e)
+			creates = append(creates, e)
 		} else {
 			updates = append(updates, e)
+			update_oids = append(update_oids, oid)
 		}
 		design.Elements[e.Identify()] = e
 	}
@@ -163,11 +179,12 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		case "Computer":
 			var c addie.Computer
 			err := json.Unmarshal(u.Element, &c)
+			log.Println(c)
 			if err != nil {
 				log.Println("unable to unmarshal computer")
 			}
 			dedup(u.OID, c)
-			place(c)
+			place(u.OID, c)
 		case "Switch":
 			var s addie.Switch
 			err := json.Unmarshal(u.Element, &s)
@@ -175,7 +192,7 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				log.Println("unable to unmarshal switch")
 			}
 			dedup(u.OID, s)
-			place(s)
+			place(u.OID, s)
 		case "Router":
 			var r addie.Router
 			err := json.Unmarshal(u.Element, &r)
@@ -183,7 +200,7 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				log.Println("unable to unmarshal router")
 			}
 			dedup(u.OID, r)
-			place(r)
+			place(u.OID, r)
 		case "Model":
 			var m addie.Model
 			err := json.Unmarshal(u.Element, &m)
@@ -191,7 +208,7 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				log.Println("unable to unmarshal model")
 			}
 			dedup(u.OID, m)
-			place(m)
+			place(u.OID, m)
 		case "Sensor":
 			var s addie.Sensor
 			err := json.Unmarshal(u.Element, &s)
@@ -199,7 +216,7 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				log.Println("unable to unmarshal sensor")
 			}
 			dedup(u.OID, s)
-			place(s)
+			place(u.OID, s)
 		case "Actuator":
 			var a addie.Actuator
 			err := json.Unmarshal(u.Element, &a)
@@ -207,7 +224,7 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				log.Println("unable to unmarshal sensor")
 			}
 			dedup(u.OID, a)
-			place(a)
+			place(u.OID, a)
 		case "Link":
 			var l addie.Link
 			err := json.Unmarshal(u.Element, &l)
@@ -215,18 +232,18 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				log.Println("unable to unmarshal link")
 			}
 			dedup(u.OID, l)
-			place(l)
+			place(u.OID, l)
 		default:
 			log.Println("unkown element type: ", u.Type)
 		}
 
 	}
 
-	for _, u := range updates {
-		dbUpdate(u)
+	for i, u := range updates {
+		dbUpdate(update_oids[i], u)
 	}
-	for _, i := range inserts {
-		dbInsert(i)
+	for _, c := range creates {
+		dbCreate(c)
 	}
 
 	log.Println("\n", design.String())
