@@ -203,6 +203,10 @@ func emptyReadFailure() error {
 		"empty query failure")
 }
 
+func notImplementedFailure() error {
+	return callerFailure(fmt.Errorf("not implemented"), "not implemented failure")
+}
+
 // CRUD ========================================================================
 
 // Designs ---------------------------------------------------------------------
@@ -434,18 +438,19 @@ func ReadId(id int) (*addie.Id, error) {
 UpdateID updates an id. If the system in the new id does not exist it is created.
 Changing design is not supported through this interface
 */
-func UpdateId(oid addie.Id, id addie.Id) error {
+func UpdateId(oid addie.Id, id addie.Id) (int, error) {
+
+	key, err := ReadIdKey(oid)
+	if err != nil {
+		return -1, readFailure(err)
+	}
 
 	if oid == id {
-		return nil
+		return key, nil
 	}
 	if oid.Design != id.Design {
-		return fmt.Errorf("[UpdateId] changing design though this interface not supported")
-	}
-
-	oid_key, err := ReadIdKey(oid)
-	if err != nil {
-		return readFailure(err)
+		return key,
+			fmt.Errorf("[UpdateId] changing design though this interface not supported")
 	}
 
 	if oid.Sys != id.Sys {
@@ -453,33 +458,33 @@ func UpdateId(oid addie.Id, id addie.Id) error {
 		if err != nil {
 			sys_key, err = CreateSystem(id.Design, id.Sys)
 			if err != nil {
-				return createFailure(err)
+				return key, createFailure(err)
 			}
 		}
 		q := fmt.Sprintf(
-			"UPDATE ids SET sys_id = %d WHERE id = %d", sys_key, oid_key)
+			"UPDATE ids SET sys_id = %d WHERE id = %d", sys_key, key)
 
 		err = runC(q)
 		if err != nil {
-			return updateFailure(err)
+			return key, updateFailure(err)
 		}
 
 		//err := SysRecycle() do this in background?
 		//if err != nil {
 		//	log.Println(err)
-		//	return fmt.Errorf("[UpdateId] an error occured during recycling")
+		//	return key, fmt.Errorf("[UpdateId] an error occured during recycling")
 		//}
 	}
 	if oid.Name != id.Name {
 		q := fmt.Sprintf(
-			"UPDATE ids SET name = '%s' WHERE id = %d", id.Name, oid_key)
+			"UPDATE ids SET name = '%s' WHERE id = %d", id.Name, key)
 		err = runC(q)
 		if err != nil {
-			return updateFailure(err)
+			return key, updateFailure(err)
 		}
 	}
 
-	return nil
+	return key, nil
 }
 
 // Interfaces ------------------------------------------------------------------------
@@ -589,6 +594,23 @@ func ReadHostInterfaces(host_id int) (*map[string]addie.Interface, error) {
 
 // Network Hosts ---------------------------------------------------------------------
 
+func CreateNetworkHost(h addie.NetHost) (int, error) {
+
+	//id insert
+	id_key, err := CreateId(h.Id)
+	if err != nil {
+		return -1, createFailure(err)
+	}
+
+	//network host insert
+	err = CreateNetworkHostByKey(id_key)
+	if err != nil {
+		return -1, createFailure(err)
+	}
+
+	return id_key, nil
+}
+
 func CreateNetworkHostByKey(id_key int) error {
 
 	q := fmt.Sprintf(
@@ -600,6 +622,19 @@ func CreateNetworkHostByKey(id_key int) error {
 	}
 
 	return nil
+
+}
+
+func UpdateNetworkHost(oid addie.Id, h addie.NetHost) (int, error) {
+
+	key, err := UpdateId(oid, h.Id)
+	if err != nil {
+		return -1, updateFailure(err)
+	}
+
+	//TODO: update the interfaces
+
+	return key, nil
 
 }
 
@@ -654,6 +689,19 @@ func ReadPosition(id int) (*addie.Position, error) {
 
 }
 
+func UpdatePosition(key int, p addie.Position) (int, error) {
+
+	q := fmt.Sprintf("UPDATE positions SET x = %f, y = %f, z = %f WHERE id = %d",
+		p.X, p.Y, p.Z, key)
+
+	err := runC(q)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	return key, nil
+}
+
 // Packet Conductors -----------------------------------------------------------------
 
 func CreatePacketConductor(p addie.PacketConductor) (int, error) {
@@ -706,18 +754,27 @@ func ReadPacketConductor(id int) (*addie.PacketConductor, error) {
 
 }
 
+func UpdatePacketConductor(key int, p addie.PacketConductor) (int, error) {
+
+	q := fmt.Sprintf(
+		"UPDATE packet_conductors SET capacity = %d, latency = %d WHERE id = %d",
+		p.Capacity, p.Latency, key)
+
+	err := runC(q)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	return key, nil
+
+}
+
 // Computers -------------------------------------------------------------------------
 
 func CreateComputer(c addie.Computer) error {
 
-	//id insert
-	id_key, err := CreateId(c.Id)
-	if err != nil {
-		return createFailure(err)
-	}
-
-	//network host insert
-	err = CreateNetworkHostByKey(id_key)
+	//nethost insert
+	host_key, err := CreateNetworkHost(c.NetHost)
 	if err != nil {
 		return createFailure(err)
 	}
@@ -730,7 +787,7 @@ func CreateComputer(c addie.Computer) error {
 
 	//interfaces insert
 	for _, ifx := range c.Interfaces {
-		err = CreateInterface(id_key, ifx)
+		err = CreateInterface(host_key, ifx)
 		if err != nil {
 			return createFailure(err)
 		}
@@ -738,7 +795,7 @@ func CreateComputer(c addie.Computer) error {
 
 	//computer insert
 	q := fmt.Sprintf("INSERT INTO computers (id, os, start_script, position_id) "+
-		"values (%d, '%s', '%s', %d)", id_key, c.OS, c.Start_script, pos_key)
+		"values (%d, '%s', '%s', %d)", host_key, c.OS, c.Start_script, pos_key)
 
 	err = runC(q)
 	if err != nil {
@@ -748,30 +805,42 @@ func CreateComputer(c addie.Computer) error {
 	return nil
 }
 
-func UpdateComputer(oid addie.Id, c addie.Computer) error {
+func UpdateComputer(oid addie.Id, c addie.Computer) (int, error) {
 
-	if oid != c.Id {
-		err := UpdateId(oid, c.Id)
-		if err != nil {
-			return updateFailure(err)
-		}
-	}
-
-	id_key, err := ReadIdKey(c.Id)
+	key, err := UpdateNetworkHost(oid, c.NetHost)
 	if err != nil {
-		return readFailure(err)
+		return -1, updateFailure(err)
 	}
 
-	q := fmt.Sprintf(
+	q := fmt.Sprintf("SELECT position_id FROM computers WHERE id = %d", key)
+	rows, err := runQ(q)
+	if err != nil {
+		return key, selectFailure(err)
+	}
+	if !rows.Next() {
+		return key, emptyReadFailure()
+	}
+	var pos_key int
+	err = rows.Scan(&pos_key)
+	if err != nil {
+		return key, scanFailure(err)
+	}
+
+	_, err = UpdatePosition(pos_key, c.Position)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	q = fmt.Sprintf(
 		"UPDATE computers SET os = '%s', start_script = '%s' WHERE id = %d",
-		c.OS, c.Start_script, id_key)
+		c.OS, c.Start_script, key)
 
 	err = runC(q)
 	if err != nil {
-		return updateFailure(err)
+		return key, updateFailure(err)
 	}
 
-	return nil
+	return key, nil
 
 }
 
@@ -837,17 +906,8 @@ func ReadComputer(id addie.Id) (*addie.Computer, error) {
 
 func CreateRouter(r addie.Router) error {
 
-	//TODO: this is almost the exact same code as the beginning of ComputerCreate
-	//make an interface to combine this shizzzz
-
-	//id insert
-	id_key, err := CreateId(r.Id)
-	if err != nil {
-		return createFailure(err)
-	}
-
-	//network host insert
-	err = CreateNetworkHostByKey(id_key)
+	//create nethost
+	host_key, err := CreateNetworkHost(r.NetHost)
 	if err != nil {
 		return createFailure(err)
 	}
@@ -868,7 +928,7 @@ func CreateRouter(r addie.Router) error {
 	q := fmt.Sprintf(
 		"INSERT INTO routers (id, packet_conductor_id, position_id) "+
 			"values (%d, %d, %d)",
-		id_key, pkt_key, pos_key)
+		host_key, pkt_key, pos_key)
 
 	err = runC(q)
 	if err != nil {
@@ -878,15 +938,15 @@ func CreateRouter(r addie.Router) error {
 	return nil
 }
 
-func ReadRouter(id addie.Id) (*addie.Router, error) {
+func ReadRouterByKey(key int) (*addie.Router, error) {
 
-	id_key, err := ReadIdKey(id)
+	id, err := ReadId(key)
 	if err != nil {
 		return nil, readFailure(err)
 	}
 
 	q := fmt.Sprintf(
-		"SELECT packet_conductor_id, position_id FROM routers WHERE id = %d", id_key)
+		"SELECT packet_conductor_id, position_id FROM routers WHERE id = %d", key)
 
 	rows, err := runQ(q)
 	defer safeClose(rows)
@@ -914,13 +974,59 @@ func ReadRouter(id addie.Id) (*addie.Router, error) {
 	}
 
 	rtr := addie.Router{}
-	rtr.Id = id
+	rtr.Id = *id
 	rtr.Interfaces = make(map[string]addie.Interface) //todo
 	rtr.PacketConductor = *pkt
 	rtr.Position = *pos
 
 	return &rtr, nil
 
+}
+
+func ReadRouter(id addie.Id) (*addie.Router, error) {
+
+	key, err := ReadIdKey(id)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	return ReadRouterByKey(key)
+}
+
+func UpdateRouter(oid addie.Id, r addie.Router) (int, error) {
+
+	key, err := UpdateNetworkHost(oid, r.NetHost)
+	if err != nil {
+		return -1, updateFailure(err)
+	}
+
+	q := fmt.Sprintf("SELECT position_id, packet_conductor_id FROM routers "+
+		"WHERE id = %d", key)
+
+	rows, err := runQ(q)
+	if err != nil {
+		return key, selectFailure(err)
+	}
+	if !rows.Next() {
+		return key, emptyReadFailure()
+	}
+	var pos_key, pkt_key int
+	err = rows.Scan(&pos_key, &pkt_key)
+	if err != nil {
+		return key, scanFailure(err)
+	}
+
+	_, err = UpdatePosition(pos_key, r.Position)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	_, err = UpdatePacketConductor(pkt_key, r.PacketConductor)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	return key, nil
 }
 
 // Switches --------------------------------------------------------------------------

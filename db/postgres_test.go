@@ -146,7 +146,7 @@ func modifyComputerTest(t *testing.T, c addie.Computer) addie.Computer {
 	d.Name = "b"
 	d.Sys = "galactica"
 
-	err = UpdateComputer(c.Id, d)
+	_, err = UpdateComputer(c.Id, d)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to update computer")
@@ -165,6 +165,78 @@ func modifyComputerTest(t *testing.T, c addie.Computer) addie.Computer {
 	}
 
 	return *_c
+}
+
+func addRouterTest(t *testing.T) addie.Router {
+
+	rtr := addie.Router{}
+	//Id
+	rtr.Name = "rtr"
+	rtr.Sys = "root"
+	rtr.Design = "caprica"
+	//Net Host
+	rtr.Interfaces = make(map[string]addie.Interface)
+	//PacketConductor
+	rtr.Latency = 47
+	rtr.Capacity = 1000
+	rtr.Position = addie.Position{4, 7, 4}
+
+	err := CreateRouter(rtr)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to insert router")
+	}
+
+	_rtr, err := ReadRouter(addie.Id{"rtr", "root", "caprica"})
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to get router")
+	}
+
+	if rtr.Id != _rtr.Id {
+		t.Fatal("router round trip failed for: id")
+	}
+
+	if rtr.PacketConductor != _rtr.PacketConductor {
+		t.Fatal("router round trip failed for: packet conductor")
+	}
+
+	if rtr.Position != _rtr.Position {
+		t.Fatal("router round trip failed for: position")
+	}
+
+	return rtr
+}
+
+func modifyRouterTest(t *testing.T, r addie.Router) addie.Router {
+
+	key, err := ReadIdKey(r.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := r
+	s.Name = "bill"
+	s.Latency = 222
+	s.Capacity = 333
+
+	_, err = UpdateRouter(r.Id, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_r, err := ReadRouterByKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !s.Equals(_r) {
+		t.Log(s)
+		t.Log(_r)
+		t.Fatal("router update failed")
+	}
+
+	return *_r
 }
 
 func TestOneCreateDestroyUpdate(t *testing.T) {
@@ -193,42 +265,8 @@ func TestOneCreateDestroyUpdate(t *testing.T) {
 	c := addComputerTest(t)
 	c = modifyComputerTest(t, c)
 
-	//Add a router ------------
-	rtr := addie.Router{}
-	//Id
-	rtr.Name = "rtr"
-	rtr.Sys = "root"
-	rtr.Design = "caprica"
-	//Net Host
-	rtr.Interfaces = make(map[string]addie.Interface)
-	//PacketConductor
-	rtr.Latency = 47
-	rtr.Capacity = 1000
-	rtr.Position = addie.Position{4, 7, 4}
-
-	err = CreateRouter(rtr)
-	if err != nil {
-		t.Log(err)
-		t.Fatal("failed to insert router")
-	}
-
-	_rtr, err := ReadRouter(addie.Id{"rtr", "root", "caprica"})
-	if err != nil {
-		t.Log(err)
-		t.Fatal("failed to get router")
-	}
-
-	if rtr.Id != _rtr.Id {
-		t.Fatal("router round trip failed for: id")
-	}
-
-	if rtr.PacketConductor != _rtr.PacketConductor {
-		t.Fatal("router round trip failed for: packet conductor")
-	}
-
-	if rtr.Position != _rtr.Position {
-		t.Fatal("router round trip failed for: position")
-	}
+	r := addRouterTest(t)
+	modifyRouterTest(t, r)
 
 	//Add a switch ---------------
 	sw := addie.Switch{}

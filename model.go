@@ -20,6 +20,26 @@ type NetHost struct {
 	Id
 	Interfaces map[string]Interface
 }
+
+func (h *NetHost) Equals(x *NetHost) bool {
+
+	if !(h.Id == x.Id) {
+		return false
+	}
+
+	for k, v := range h.Interfaces {
+		_v, ok := x.Interfaces[k]
+		if !ok {
+			return false
+		}
+		if v != _v {
+			return false
+		}
+	}
+
+	return true
+}
+
 type Interface struct {
 	Name string
 	PacketConductor
@@ -33,28 +53,13 @@ type Computer struct {
 }
 
 func (c Computer) Identify() Id { return c.Id }
+
 func (c *Computer) Equals(x *Computer) bool {
 
-	isEq := c.Id == x.Id &&
+	return c.NetHost.Equals(&x.NetHost) &&
 		c.Position == x.Position &&
 		c.OS == x.OS &&
 		c.Start_script == x.Start_script
-
-	if !isEq {
-		return false
-	}
-
-	for k, v := range c.Interfaces {
-		_v, ok := x.Interfaces[k]
-		if !ok {
-			return false
-		}
-		if v != _v {
-			return false
-		}
-	}
-
-	return true
 
 }
 
@@ -78,6 +83,12 @@ type Router struct {
 }
 
 func (r Router) Identify() Id { return r.Id }
+
+func (r *Router) Equals(x *Router) bool {
+	return r.NetHost.Equals(&x.NetHost) &&
+		r.PacketConductor == x.PacketConductor &&
+		r.Position == x.Position
+}
 
 type NetIfRef struct {
 	Id
