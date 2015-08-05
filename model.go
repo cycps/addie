@@ -33,6 +33,30 @@ type Computer struct {
 }
 
 func (c Computer) Identify() Id { return c.Id }
+func (c *Computer) Equals(x *Computer) bool {
+
+	isEq := c.Id == x.Id &&
+		c.Position == x.Position &&
+		c.OS == x.OS &&
+		c.Start_script == x.Start_script
+
+	if !isEq {
+		return false
+	}
+
+	for k, v := range c.Interfaces {
+		_v, ok := x.Interfaces[k]
+		if !ok {
+			return false
+		}
+		if v != _v {
+			return false
+		}
+	}
+
+	return true
+
+}
 
 type PacketConductor struct {
 	Capacity int

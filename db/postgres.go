@@ -23,6 +23,7 @@ var tx *sql.Tx = nil
 func dbConnect() error {
 	var err error = nil
 	if db == nil {
+		log.Println("dbConnect")
 		db, err = sql.Open("postgres", "host="+dbAddr+" user=root dbname=cyp")
 	}
 	if err != nil {
@@ -43,6 +44,7 @@ func dbPing() error {
 
 	err := db.Ping()
 	if err != nil {
+		db = nil
 		log.Println("dbPing failed -- trying to reconnect")
 		log.Println(err)
 
@@ -74,6 +76,18 @@ func runQ(q string) (*sql.Rows, error) {
 		return nil, errors.New("Failed to run query")
 	}
 	return rows, nil
+}
+
+func safeClose(rows *sql.Rows) {
+	if rows != nil {
+		rows.Close()
+	}
+}
+
+func runC(q string) error {
+	rows, err := runQ(q)
+	safeClose(rows)
+	return err
 }
 
 func beginTx() error {
@@ -109,11 +123,11 @@ func GetDesigns() (map[string]struct{}, error) {
 	m := make(map[string]struct{})
 
 	rows, err := runQ("SELECT (name) FROM designs")
+	defer safeClose(rows)
 	if err != nil {
 		return nil, err
 	}
 
-	defer rows.Close()
 	var e struct{}
 
 	for rows.Next() {
@@ -133,7 +147,7 @@ func GetDesigns() (map[string]struct{}, error) {
 func InsertDesign(name string) error {
 
 	q := fmt.Sprintf("INSERT INTO designs (name) VALUES ('%s')", name)
-	_, err := runQ(q)
+	err := runC(q)
 	if err != nil {
 		return err
 	}
@@ -144,7 +158,7 @@ func InsertDesign(name string) error {
 func TrashDesign(name string) error {
 
 	q := fmt.Sprintf("DELETE FROM designs WHERE name = '%s'", name)
-	_, err := runQ(q)
+	err := runC(q)
 	if err != nil {
 		return err
 	}
@@ -152,29 +166,42 @@ func TrashDesign(name string) error {
 	return nil
 }
 
-func InsertSystem(design string, name string) error {
+func InsertSystem(design string, name string) (int, error) {
 
 	design_key, err := DesignKey(design)
 	if err != nil {
 		log.Println(err)
-		return fmt.Errorf("[InsertSystem] design '%s' does not exist", design)
+		return -1, fmt.Errorf("[InsertSystem] design '%s' does not exist", design)
 	}
 
-	q := fmt.Sprintf("INSERT INTO systems (design_id, name) VALUES (%d, '%s')",
+	q := fmt.Sprintf(
+		"INSERT INTO systems (design_id, name) VALUES (%d, '%s') RETURNING id",
 		design_key, name)
 
-	_, err = runQ(q)
+	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
-		return err
+		log.Println(err)
+		return -1, fmt.Errorf("[InsertSystem] insertion query failed")
+	}
+	if !rows.Next() {
+		return -1, fmt.Errorf("[InsertSystem] insertion readback failed")
+	}
+	var id_key int
+	err = rows.Scan(&id_key)
+	if err != nil {
+		log.Println(err)
+		return -1, fmt.Errorf("[InsertSystem] id readback scan failed")
 	}
 
-	return nil
+	return id_key, nil
 
 }
 
 func getKey(q string) (int, error) {
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		log.Println(err)
 		return -1, fmt.Errorf("failed to run key query: %s", q)
@@ -195,12 +222,12 @@ func getKey(q string) (int, error) {
 
 }
 
-func SysKey(design string, name string) (int, int, error) {
+func SysKey(design string, name string) (int, error) {
 
 	design_key, err := DesignKey(design)
 	if err != nil {
 		log.Println(err)
-		return -1, -1, fmt.Errorf("[SysKey] design '%s' does not exist", design)
+		return -1, fmt.Errorf("[SysKey] design '%s' does not exist", design)
 	}
 
 	q := fmt.Sprintf("SELECT id FROM systems WHERE name = '%s' AND design_id = %d",
@@ -209,17 +236,17 @@ func SysKey(design string, name string) (int, int, error) {
 	sys_key, err := getKey(q)
 	if err != nil {
 		log.Println(err)
-		return -1, -1, fmt.Errorf("could not get key for system '%s'", name)
+		return -1, fmt.Errorf("could not get key for system '%s'", name)
 	}
-	return design_key, sys_key, nil
+	return sys_key, nil
 }
 
-func IdKey(id addie.Id) (int, int, int, error) {
+func IdKey(id addie.Id) (int, error) {
 
-	design_key, sys_key, err := SysKey(id.Design, id.Sys)
+	sys_key, err := SysKey(id.Design, id.Sys)
 	if err != nil {
 		log.Println(err)
-		return -1, -1, -1, fmt.Errorf(
+		return -1, fmt.Errorf(
 			"[IdKey] (design, sys) combo ('%s', '%s') does not exist",
 			id.Design, id.Sys)
 	}
@@ -230,9 +257,9 @@ func IdKey(id addie.Id) (int, int, int, error) {
 	id_key, err := getKey(q)
 	if err != nil {
 		log.Println(err)
-		return -1, -1, -1, fmt.Errorf("could not get id key for %v", id)
+		return -1, fmt.Errorf("could not get id key for %v", id)
 	}
-	return design_key, sys_key, id_key, nil
+	return id_key, nil
 }
 
 func InterfaceKey(host_id int, ifname string) (int, error) {
@@ -265,7 +292,7 @@ func DesignKey(name string) (int, error) {
 }
 
 func InsertId(id addie.Id) (int, error) {
-	_, sys_id, err := SysKey(id.Design, id.Sys)
+	sys_id, err := SysKey(id.Design, id.Sys)
 	if err != nil {
 		log.Println(err)
 		return -1, fmt.Errorf("r[InsertId] retrieving system '%s' failed", id.Sys)
@@ -276,6 +303,7 @@ func InsertId(id addie.Id) (int, error) {
 		id.Name, sys_id)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		log.Println(err)
 		return -1, fmt.Errorf("[InsertId] id insert failed")
@@ -299,7 +327,7 @@ func InsertNetworkHostByKey(id_key int) error {
 	q := fmt.Sprintf(
 		"INSERT INTO network_hosts (id) VALUES (%d)", id_key)
 
-	_, err := runQ(q)
+	err := runC(q)
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("[InsertNetworkHostByKey] network_host insert failed")
@@ -316,6 +344,7 @@ func InsertPosition(p addie.Position) (int, error) {
 		p.X, p.Y, p.Z)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		log.Println(err)
 		return -1, fmt.Errorf("[InsertPosition] position insert failed")
@@ -343,6 +372,7 @@ func InsertPacketConductor(p addie.PacketConductor) (int, error) {
 		p.Capacity, p.Latency)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		log.Println(err)
 		return -1, fmt.Errorf("[InsertPacketConductor] insert failed")
@@ -377,7 +407,7 @@ func InsertInterface(host_id int, ifx addie.Interface) error {
 			"VALUES ('%s', %d, %d)",
 		ifx.Name, host_id, pkt_id)
 
-	_, err = runQ(q)
+	err = runC(q)
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("[InsertInterface] insert failed")
@@ -389,11 +419,12 @@ func InsertInterface(host_id int, ifx addie.Interface) error {
 func GetInterface(id int) (*addie.Interface, error) {
 
 	q := fmt.Sprintf(
-		"SELECT name, host_id, packet_conductor_id FROM interfaces WHERE id =%d", id)
+		"SELECT name, host_id, packet_conductor_id FROM interfaces WHERE id = %d", id)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
-		println(err)
+		log.Println(err)
 		return nil, fmt.Errorf("[GetInterface] error running query: %s", q)
 	}
 	if !rows.Next() {
@@ -403,13 +434,13 @@ func GetInterface(id int) (*addie.Interface, error) {
 	var host_key, pkt_key int
 	err = rows.Scan(&name, &host_key, &pkt_key)
 	if err != nil {
-		println(err)
+		log.Println(err)
 		return nil, fmt.Errorf("[GetInterface] error reading query result")
 	}
 
 	pkt, err := GetPacketConductor(pkt_key)
 	if err != nil {
-		println(err)
+		log.Println(err)
 		return nil, fmt.Errorf("[GetInterface] error getting packet conductor")
 	}
 
@@ -419,6 +450,44 @@ func GetInterface(id int) (*addie.Interface, error) {
 
 	return &ifx, nil
 
+}
+
+func GetHostInterfaces(host_id int) (*map[string]addie.Interface, error) {
+
+	q := fmt.Sprintf(
+		"SELECT name, packet_conductor_id FROM interfaces WHERE host_id = %d", host_id)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetHostInterfaces] error running query")
+	}
+	result := make(map[string]addie.Interface)
+	for rows.Next() {
+		var name string
+		var pkt_key int
+		err = rows.Scan(&name, &pkt_key)
+		if err != nil {
+			log.Println(err)
+			return nil, fmt.Errorf("[GetHostInterfaces] error reading query result")
+		}
+
+		pkt, err := GetPacketConductor(pkt_key)
+		if err != nil {
+			log.Println(err)
+			return nil, fmt.Errorf("[GetHostInterfaces] error getting packet conductor")
+		}
+
+		ifx := addie.Interface{}
+		ifx.Name = name
+		ifx.PacketConductor = *pkt
+
+		result[name] = ifx
+
+	}
+
+	return &result, nil
 }
 
 func InsertComputer(c addie.Computer) error {
@@ -460,13 +529,108 @@ func InsertComputer(c addie.Computer) error {
 			"values (%d, '%s', '%s', %d)",
 		id_key, c.OS, c.Start_script, pos_key)
 
-	_, err = runQ(q)
+	err = runC(q)
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("Error inserting Computer '%s' into the DB", c.Name)
 	}
 
 	return nil
+}
+
+/*
+UpdateID updates an id. If the system in the new id does not exist it is created.
+Changing design is not supported through this interface
+*/
+func UpdateId(oid addie.Id, id addie.Id) error {
+
+	if oid == id {
+		return nil
+	}
+	if oid.Design != id.Design {
+		return fmt.Errorf("[UpdateId] changing design though this interface not supported")
+	}
+
+	oid_key, err := IdKey(oid)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[UpdateId] bad oid")
+	}
+
+	if oid.Sys != id.Sys {
+		sys_key, err := SysKey(id.Design, id.Sys)
+		if err != nil {
+			sys_key, err = InsertSystem(id.Design, id.Sys)
+			if err != nil {
+				log.Println(err)
+				return fmt.Errorf("[UpdateId] fail to insert new system")
+			}
+		}
+		q := fmt.Sprintf(
+			"UPDATE ids SET sys_id = %d WHERE id = %d", sys_key, oid_key)
+
+		err = runC(q)
+		if err != nil {
+			log.Println(err)
+			return fmt.Errorf("[UpdateId] failed to set sys_id=%d", sys_key)
+		}
+
+		//err := SysRecycle() do this in background?
+		if err != nil {
+			log.Println(err)
+			return fmt.Errorf("[UpdateId] an error occured during recycling")
+		}
+	}
+	if oid.Name != id.Name {
+		q := fmt.Sprintf(
+			"UPDATE ids SET name = '%s' WHERE id = %d", id.Name, oid_key)
+		err = runC(q)
+		if err != nil {
+			log.Println(err)
+			return fmt.Errorf("[UpdateId] failed to set name=%d", id.Name)
+		}
+	}
+
+	return nil
+}
+
+func SysRecycle() error {
+
+	//TODO
+
+	return nil
+
+}
+
+func UpdateComputer(oid addie.Id, c addie.Computer) error {
+
+	if oid != c.Id {
+		err := UpdateId(oid, c.Id)
+		if err != nil {
+			log.Println(err)
+			return fmt.Errorf("[UpdateComputer] failed to update id")
+		}
+	}
+
+	id_key, err := IdKey(c.Id)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[UpdateComputer] bad id")
+	}
+
+	q := fmt.Sprintf(
+		"UPDATE computers SET os = '%s', start_script = '%s' WHERE id = %d",
+		c.OS, c.Start_script, id_key)
+
+	err = runC(q)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("[UpdateComputer] failed to run computer update query")
+	}
+
+	//return fmt.Errorf("[UpdateComputer] not implememted")
+	return nil
+
 }
 
 func InsertRouter(r addie.Router) error {
@@ -508,7 +672,7 @@ func InsertRouter(r addie.Router) error {
 			"values (%d, %d, %d)",
 		id_key, pkt_key, pos_key)
 
-	_, err = runQ(q)
+	err = runC(q)
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("Error inserting Router '%s' intro the DB", r.Name)
@@ -523,6 +687,7 @@ func GetId(id int) (*addie.Id, error) {
 	q := fmt.Sprintf(
 		"SELECT name, sys_id FROM ids WHERE id = %d", id)
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("[GetId] id-query error: %s", q)
@@ -582,6 +747,7 @@ func GetPosition(id int) (*addie.Position, error) {
 		"SELECT x, y, z FROM positions WHERE id = %d", id)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("[GetPosition] query error: %s", q)
@@ -608,6 +774,7 @@ func GetPacketConductor(id int) (*addie.PacketConductor, error) {
 		"SELECT capacity, latency FROM packet_conductors WHERE id = %d", id)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("[GetPacketConductor] query error: %s", q)
@@ -627,19 +794,19 @@ func GetPacketConductor(id int) (*addie.PacketConductor, error) {
 
 }
 
-func GetComputer(id addie.Id) (*addie.Computer, error) {
+func GetComputerByKey(id_key int) (*addie.Computer, error) {
 
-	_, _, id_key, err := IdKey(id)
+	id, err := GetId(id_key)
 	if err != nil {
 		log.Println(err)
-		return nil, fmt.Errorf(
-			"[GetComputer] unable to retrieve design or system for the id %v", id)
+		return nil, fmt.Errorf("[GetComputer] bad id key %d", id_key)
 	}
 
 	q := fmt.Sprintf(
 		"SELECT os, start_script, position_id FROM computers WHERE id = %d", id_key)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("[GetComputer] failed to run query: %s", q)
@@ -662,19 +829,39 @@ func GetComputer(id addie.Id) (*addie.Computer, error) {
 		return nil, fmt.Errorf("[GetComputer] failed to retrieve computer position")
 	}
 
+	ifs, err := GetHostInterfaces(id_key)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("[GetComputer] failed to get computer interfaces")
+	}
+
 	c := addie.Computer{}
-	c.Id = id
-	c.Interfaces = make(map[string]addie.Interface) //todo
+	c.Id = *id
+	c.Interfaces = *ifs
 	c.OS = os
 	c.Start_script = start_script
 	c.Position = *pos
 
 	return &c, nil
+
+}
+
+func GetComputer(id addie.Id) (*addie.Computer, error) {
+
+	id_key, err := IdKey(id)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf(
+			"[GetComputer] unable to retrieve design or system for the id %v", id)
+	}
+
+	return GetComputerByKey(id_key)
+
 }
 
 func GetRouter(id addie.Id) (*addie.Router, error) {
 
-	_, _, id_key, err := IdKey(id)
+	id_key, err := IdKey(id)
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("[GetRouter] get id %v failed", id)
@@ -684,6 +871,7 @@ func GetRouter(id addie.Id) (*addie.Router, error) {
 		"SELECT packet_conductor_id, position_id FROM routers WHERE id = %d", id_key)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("[GetRouter] failed to run query: %s", q)
@@ -750,7 +938,7 @@ func InsertSwitch(s addie.Switch) error {
 			"values (%d, %d, %d)",
 		id_key, pkt_key, pos_key)
 
-	_, err = runQ(q)
+	err = runC(q)
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("Error inserting Switch '%s' intro the DB", s.Name)
@@ -761,7 +949,7 @@ func InsertSwitch(s addie.Switch) error {
 
 func GetSwitch(id addie.Id) (*addie.Switch, error) {
 
-	_, _, id_key, err := IdKey(id)
+	id_key, err := IdKey(id)
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("[GetSwitch] get id %v failed", id)
@@ -771,6 +959,7 @@ func GetSwitch(id addie.Id) (*addie.Switch, error) {
 		"SELECT packet_conductor_id, position_id FROM switches WHERE id = %d", id_key)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("[GetSwitch] failed to run query: %s", q)
@@ -824,7 +1013,7 @@ func InsertLink(l addie.Link) error {
 	}
 
 	//endpoint0
-	_, _, ep0_key, err := IdKey(l.Endpoints[0].Id)
+	ep0_key, err := IdKey(l.Endpoints[0].Id)
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("[InsertLink] bad endpoint[0]")
@@ -836,7 +1025,7 @@ func InsertLink(l addie.Link) error {
 	}
 
 	//endpoint1
-	_, _, ep1_key, err := IdKey(l.Endpoints[1].Id)
+	ep1_key, err := IdKey(l.Endpoints[1].Id)
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("[InsertLink] bad endpoint[1]")
@@ -855,7 +1044,7 @@ func InsertLink(l addie.Link) error {
 			"VALUES (%d, %d, %d, %d, %d, %d)",
 		id_key, pkt_key, ep0_key, if0_key, ep1_key, if1_key)
 
-	_, err = runQ(q)
+	err = runC(q)
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("Error inserting link '%s' into the DB", l.Name)
@@ -867,7 +1056,7 @@ func InsertLink(l addie.Link) error {
 
 func GetLink(id addie.Id) (*addie.Link, error) {
 
-	_, _, id_key, err := IdKey(id)
+	id_key, err := IdKey(id)
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("[GetLink] get id %v failed", id)
@@ -881,6 +1070,7 @@ func GetLink(id addie.Id) (*addie.Link, error) {
 		id_key)
 
 	rows, err := runQ(q)
+	defer safeClose(rows)
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("[GetLink] failed to run query: %s", q)

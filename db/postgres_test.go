@@ -69,11 +69,11 @@ func TestSysCreateDestroy(t *testing.T) {
 		t.Error("caprica has not been created")
 	}
 
-	err = InsertSystem("caprica", "root")
+	_, err = InsertSystem("caprica", "root")
 	if err != nil {
 		t.Error(err)
 	}
-	_, _, err = SysKey("caprica", "root")
+	_, err = SysKey("caprica", "root")
 	if err != nil {
 		t.Error(err)
 	}
@@ -94,38 +94,8 @@ func TestSysCreateDestroy(t *testing.T) {
 
 }
 
-func TestOneCreateDestroy(t *testing.T) {
+func addComputerTest(t *testing.T) addie.Computer {
 
-	/*
-		err := beginTx()
-		if err != nil {
-			t.Log(err)
-			t.Fatal("failed to start transaction")
-		}
-	*/
-
-	err := InsertDesign("caprica")
-	if err != nil {
-		t.Log(err)
-		t.Fatal("failed to create caprica")
-	}
-
-	//ghetto transaction
-	defer func() {
-		err = TrashDesign("caprica") //on cascade delete cleans up everything
-		if err != nil {
-			t.Log(err)
-			t.Fatal("failed to trash caprica")
-		}
-	}()
-
-	err = InsertSystem("caprica", "root")
-	if err != nil {
-		t.Log(err)
-		t.Fatal("failed to create caprica.root")
-	}
-
-	//Add a computer ------------
 	c := addie.Computer{}
 	//Id
 	c.Name = "c"
@@ -143,7 +113,7 @@ func TestOneCreateDestroy(t *testing.T) {
 	c.OS = "Ubuntu-15.04"
 	c.Start_script = "make_muffins.sh"
 
-	err = InsertComputer(c)
+	err := InsertComputer(c)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to insert computer")
@@ -155,25 +125,73 @@ func TestOneCreateDestroy(t *testing.T) {
 		t.Fatal("failed to retrieve computer")
 	}
 
-	if c.Name != _c.Name {
-		t.Error("computer round trip failed for: Name")
+	if !c.Equals(_c) {
+		t.Fatal("computer round trip failed")
 	}
-	if c.Sys != _c.Sys {
-		t.Error("computer round trip failed for: Sys")
+
+	return c
+
+}
+
+func modifyComputerTest(t *testing.T, c addie.Computer) addie.Computer {
+
+	key, err := IdKey(c.Id)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("computer to modify does not exist")
 	}
-	if c.Design != _c.Design {
-		t.Error("computer round trip failed for: Design")
+
+	d := c
+	d.OS = "Kobol"
+	d.Name = "b"
+	d.Sys = "galactica"
+
+	err = UpdateComputer(c.Id, d)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to update computer")
 	}
-	//TODO test interfaces
-	if c.Position != _c.Position {
-		t.Error("computer round trip failed for: Position")
+
+	_c, err := GetComputerByKey(key)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to retrieve updated computer")
 	}
-	if c.OS != _c.OS {
-		t.Error("computer round trip failed for: OS")
+
+	if !d.Equals(_c) {
+		t.Log(c)
+		t.Log(_c)
+		t.Fatal("computer update check failed")
 	}
-	if c.Start_script != _c.Start_script {
-		t.Error("computer round trip failed for: Start_script")
+
+	return *_c
+}
+
+func TestOneCreateDestroyUpdate(t *testing.T) {
+
+	err := InsertDesign("caprica")
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to create caprica")
 	}
+
+	//ghetto transaction
+	defer func() {
+		err = TrashDesign("caprica") //on cascade delete cleans up everything
+		if err != nil {
+			t.Log(err)
+			t.Fatal("failed to trash caprica")
+		}
+	}()
+
+	_, err = InsertSystem("caprica", "root")
+	if err != nil {
+		t.Log(err)
+		t.Fatal("failed to create caprica.root")
+	}
+
+	c := addComputerTest(t)
+	c = modifyComputerTest(t, c)
 
 	//Add a router ------------
 	rtr := addie.Router{}
@@ -281,13 +299,5 @@ func TestOneCreateDestroy(t *testing.T) {
 		t.Log("%v != %v", lnk.Endpoints, _lnk.Endpoints)
 		t.Error("link round trip failed for: Endpoints")
 	}
-
-	/*
-		err = endTx()
-		if err != nil {
-			t.Log(err)
-			t.Fatal("failed to commit transaction")
-		}
-	*/
 
 }
