@@ -11,6 +11,9 @@ import (
 	"github.com/cycps/addie"
 	_ "github.com/lib/pq"
 	"log"
+	"path"
+	"runtime"
+	"strings"
 )
 
 //Common Variables ------------------------------------------------------------
@@ -147,6 +150,59 @@ func getKey(q string) (int, error) {
 
 }
 
+// Failure functions -----------------------------------------------------------
+
+func callerFailure(cause error, msg string) error {
+
+	pc := make([]uintptr, 1)
+	runtime.Callers(3, pc)
+	f := runtime.FuncForPC(pc[0])
+	file, line := f.FileLine(pc[0])
+	fn := strings.TrimPrefix(f.Name(), "github.com/cycps/addie/db.")
+
+	log.Println(cause)
+	return fmt.Errorf("%s:%d [%s] %s", path.Base(file), line, fn, msg)
+
+}
+
+func insertFailure(cause error) error {
+	return callerFailure(cause, "insert failed")
+}
+
+func selectFailure(cause error) error {
+	return callerFailure(cause, "select failed")
+}
+
+func scanFailure(cause error) error {
+	return callerFailure(cause, "result scan failed")
+}
+
+func deleteFailure(cause error) error {
+	return callerFailure(cause, "delete failed")
+}
+
+func readFailure(cause error) error {
+	return callerFailure(cause, "read failed")
+}
+
+func updateFailure(cause error) error {
+	return callerFailure(cause, "update failed")
+}
+
+func createFailure(cause error) error {
+	return callerFailure(cause, "create failed")
+}
+
+func emptyReadbackFailure() error {
+	return callerFailure(fmt.Errorf("the insert readback resulted in 0 rows"),
+		"empty readback failure")
+}
+
+func emptyReadFailure() error {
+	return callerFailure(fmt.Errorf("the query resulted in 0 rows"),
+		"empty query failure")
+}
+
 // CRUD ========================================================================
 
 // Designs ---------------------------------------------------------------------
@@ -156,35 +212,38 @@ func CreateDesign(name string) error {
 	q := fmt.Sprintf("INSERT INTO designs (name) VALUES ('%s')", name)
 	err := runC(q)
 	if err != nil {
-		return err
+		return insertFailure(err)
 	}
 
 	return nil
+
 }
 
 func ReadDesigns() (map[string]struct{}, error) {
-	m := make(map[string]struct{})
 
-	rows, err := runQ("SELECT (name) FROM designs")
+	q := "SELECT (name) FROM designs"
+	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		return nil, err
+		return nil, selectFailure(err)
 	}
 
+	//Place holder empty struct, designs may hold more data in the future
 	var e struct{}
+	//map to hold the result
+	m := make(map[string]struct{})
 
 	for rows.Next() {
 		var name string
 		err = rows.Scan(&name)
 		if err != nil {
-			log.Println(err)
-			return nil, errors.New("could not scan the row")
+			return nil, scanFailure(err)
 		}
-
 		m[name] = e
 	}
 
 	return m, nil
+
 }
 
 func ReadDesignKey(name string) (int, error) {
@@ -192,10 +251,10 @@ func ReadDesignKey(name string) (int, error) {
 	q := fmt.Sprintf("SELECT id FROM designs WHERE name = '%s'", name)
 	key, err := getKey(q)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("could not get key for design '%s'", name)
+		return -1, selectFailure(err)
 	}
 	return key, nil
+
 }
 
 func DeleteDesign(name string) error {
@@ -203,7 +262,7 @@ func DeleteDesign(name string) error {
 	q := fmt.Sprintf("DELETE FROM designs WHERE name = '%s'", name)
 	err := runC(q)
 	if err != nil {
-		return err
+		return deleteFailure(err)
 	}
 
 	return nil
@@ -215,8 +274,7 @@ func CreateSystem(design string, name string) (int, error) {
 
 	design_key, err := ReadDesignKey(design)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("[CreateSystem] design '%s' does not exist", design)
+		return -1, readFailure(err)
 	}
 
 	q := fmt.Sprintf(
@@ -226,17 +284,15 @@ func CreateSystem(design string, name string) (int, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("[CreateSystem] insertion query failed")
+		return -1, insertFailure(err)
 	}
 	if !rows.Next() {
-		return -1, fmt.Errorf("[CreateSystem] insertion readback failed")
+		return -1, emptyReadbackFailure()
 	}
 	var id_key int
 	err = rows.Scan(&id_key)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("[CreateSystem] id readback scan failed")
+		return -1, scanFailure(err)
 	}
 
 	return id_key, nil
@@ -247,8 +303,7 @@ func ReadSysKey(design string, name string) (int, error) {
 
 	design_key, err := ReadDesignKey(design)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("[ReadSysKey] design '%s' does not exist", design)
+		return -1, readFailure(err)
 	}
 
 	q := fmt.Sprintf("SELECT id FROM systems WHERE name = '%s' AND design_id = %d",
@@ -256,10 +311,11 @@ func ReadSysKey(design string, name string) (int, error) {
 
 	sys_key, err := getKey(q)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("could not get key for system '%s'", name)
+		return -1, selectFailure(err)
 	}
+
 	return sys_key, nil
+
 }
 
 func SysRecycle() error {
@@ -276,10 +332,7 @@ func ReadIdKey(id addie.Id) (int, error) {
 
 	sys_key, err := ReadSysKey(id.Design, id.Sys)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf(
-			"[ReadIdKey] (design, sys) combo ('%s', '%s') does not exist",
-			id.Design, id.Sys)
+		return -1, readFailure(err)
 	}
 
 	q := fmt.Sprintf("SELECT id FROM ids WHERE name = '%s' AND sys_id = '%d'",
@@ -287,8 +340,7 @@ func ReadIdKey(id addie.Id) (int, error) {
 
 	id_key, err := getKey(q)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("could not get id key for %v", id)
+		return -1, selectFailure(err)
 	}
 	return id_key, nil
 }
@@ -296,8 +348,7 @@ func ReadIdKey(id addie.Id) (int, error) {
 func CreateId(id addie.Id) (int, error) {
 	sys_id, err := ReadSysKey(id.Design, id.Sys)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("r[CreateId] retrieving system '%s' failed", id.Sys)
+		return -1, readFailure(err)
 	}
 
 	q := fmt.Sprintf(
@@ -307,18 +358,16 @@ func CreateId(id addie.Id) (int, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("[CreateId] id insert failed")
+		return -1, insertFailure(err)
 	}
 
 	if !rows.Next() {
-		return -1, fmt.Errorf("[CreateId] id readback failed")
+		return -1, emptyReadbackFailure()
 	}
 	var id_key int
 	err = rows.Scan(&id_key)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("[CreateId] id readback scan failed")
+		return -1, scanFailure(err)
 	}
 
 	return id_key, nil
@@ -332,17 +381,16 @@ func ReadId(id int) (*addie.Id, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadId] id-query error: %s", q)
+		return nil, selectFailure(err)
 	}
 	if !rows.Next() {
-		return nil, fmt.Errorf("[ReadId] identity with id=%d does not exist", id)
+		return nil, emptyReadFailure()
 	}
 	var id_name string
 	var sys_key int
 	err = rows.Scan(&id_name, &sys_key)
 	if err != nil {
-		return nil, fmt.Errorf("[ReadId] failed to read id-query result")
+		return nil, scanFailure(err)
 	}
 
 	//fetch the sys
@@ -350,17 +398,16 @@ func ReadId(id int) (*addie.Id, error) {
 		"SELECT name, design_id FROM systems WHERE id=%d", sys_key)
 	rows, err = runQ(q)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadId] sys-query error: %s", q)
+		return nil, selectFailure(err)
 	}
 	if !rows.Next() {
-		return nil, fmt.Errorf("[ReadId] sys with id=%d does not exist", id)
+		return nil, emptyReadFailure()
 	}
 	var sys_name string
 	var dsg_key int
 	err = rows.Scan(&sys_name, &dsg_key)
 	if err != nil {
-		return nil, fmt.Errorf("[ReadId] failed to read sys-query result")
+		return nil, scanFailure(err)
 	}
 
 	//fetch the design
@@ -368,16 +415,15 @@ func ReadId(id int) (*addie.Id, error) {
 		"SELECT name FROM designs WHERE id=%d", dsg_key)
 	rows, err = runQ(q)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadId] design-query error: %s", q)
+		return nil, selectFailure(err)
 	}
 	if !rows.Next() {
-		return nil, fmt.Errorf("[ReadId] design with id=%d does not exist", id)
+		return nil, emptyReadFailure()
 	}
 	var dsg_name string
 	err = rows.Scan(&dsg_name)
 	if err != nil {
-		return nil, fmt.Errorf("[ReadId] failed to read design-query result")
+		return nil, scanFailure(err)
 	}
 
 	return &addie.Id{id_name, sys_name, dsg_name}, nil
@@ -399,8 +445,7 @@ func UpdateId(oid addie.Id, id addie.Id) error {
 
 	oid_key, err := ReadIdKey(oid)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[UpdateId] bad oid")
+		return readFailure(err)
 	}
 
 	if oid.Sys != id.Sys {
@@ -408,8 +453,7 @@ func UpdateId(oid addie.Id, id addie.Id) error {
 		if err != nil {
 			sys_key, err = CreateSystem(id.Design, id.Sys)
 			if err != nil {
-				log.Println(err)
-				return fmt.Errorf("[UpdateId] fail to insert new system")
+				return createFailure(err)
 			}
 		}
 		q := fmt.Sprintf(
@@ -417,23 +461,21 @@ func UpdateId(oid addie.Id, id addie.Id) error {
 
 		err = runC(q)
 		if err != nil {
-			log.Println(err)
-			return fmt.Errorf("[UpdateId] failed to set sys_id=%d", sys_key)
+			return updateFailure(err)
 		}
 
 		//err := SysRecycle() do this in background?
-		if err != nil {
-			log.Println(err)
-			return fmt.Errorf("[UpdateId] an error occured during recycling")
-		}
+		//if err != nil {
+		//	log.Println(err)
+		//	return fmt.Errorf("[UpdateId] an error occured during recycling")
+		//}
 	}
 	if oid.Name != id.Name {
 		q := fmt.Sprintf(
 			"UPDATE ids SET name = '%s' WHERE id = %d", id.Name, oid_key)
 		err = runC(q)
 		if err != nil {
-			log.Println(err)
-			return fmt.Errorf("[UpdateId] failed to set name=%d", id.Name)
+			return updateFailure(err)
 		}
 	}
 
@@ -450,10 +492,7 @@ func ReadInterfaceKey(host_id int, ifname string) (int, error) {
 
 	key, err := getKey(q)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf(
-			"could not get key for interface hostid=%d, ifname=%s",
-			host_id, ifname)
+		return -1, selectFailure(err)
 	}
 
 	return key, nil
@@ -464,8 +503,7 @@ func CreateInterface(host_id int, ifx addie.Interface) error {
 
 	pkt_id, err := CreatePacketConductor(ifx.PacketConductor)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateInterface] unable to insert packet conductor")
+		return createFailure(err)
 	}
 
 	q := fmt.Sprintf(
@@ -475,8 +513,7 @@ func CreateInterface(host_id int, ifx addie.Interface) error {
 
 	err = runC(q)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateInterface] insert failed")
+		return insertFailure(err)
 	}
 
 	return nil
@@ -490,24 +527,21 @@ func ReadInterface(id int) (*addie.Interface, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadInterface] error running query: %s", q)
+		return nil, selectFailure(err)
 	}
 	if !rows.Next() {
-		return nil, fmt.Errorf("[ReadInterface] could not find id=%d", id)
+		return nil, emptyReadFailure()
 	}
 	var name string
 	var host_key, pkt_key int
 	err = rows.Scan(&name, &host_key, &pkt_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadInterface] error reading query result")
+		return nil, scanFailure(err)
 	}
 
 	pkt, err := ReadPacketConductor(pkt_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadInterface] error getting packet conductor")
+		return nil, readFailure(err)
 	}
 
 	ifx := addie.Interface{}
@@ -526,8 +560,7 @@ func ReadHostInterfaces(host_id int) (*map[string]addie.Interface, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadHostInterfaces] error running query")
+		return nil, selectFailure(err)
 	}
 	result := make(map[string]addie.Interface)
 	for rows.Next() {
@@ -535,14 +568,12 @@ func ReadHostInterfaces(host_id int) (*map[string]addie.Interface, error) {
 		var pkt_key int
 		err = rows.Scan(&name, &pkt_key)
 		if err != nil {
-			log.Println(err)
-			return nil, fmt.Errorf("[ReadHostInterfaces] error reading query result")
+			return nil, scanFailure(err)
 		}
 
 		pkt, err := ReadPacketConductor(pkt_key)
 		if err != nil {
-			log.Println(err)
-			return nil, fmt.Errorf("[ReadHostInterfaces] error getting packet conductor")
+			return nil, readFailure(err)
 		}
 
 		ifx := addie.Interface{}
@@ -565,8 +596,7 @@ func CreateNetworkHostByKey(id_key int) error {
 
 	err := runC(q)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateNetworkHostByKey] network_host insert failed")
+		return insertFailure(err)
 	}
 
 	return nil
@@ -584,19 +614,16 @@ func CreatePosition(p addie.Position) (int, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("[CreatePosition] position insert failed")
+		return -1, insertFailure(err)
 	}
 	if !rows.Next() {
-		log.Println(err)
-		return -1, fmt.Errorf("[CreatePosition] pg RETURNING cursor did not return anything")
+		return -1, emptyReadbackFailure()
 	}
 
 	var pos_key int
 	err = rows.Scan(&pos_key)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("[CreatePosition] failed to read pg RETURNING row")
+		return -1, scanFailure(err)
 	}
 
 	return pos_key, nil
@@ -610,19 +637,17 @@ func ReadPosition(id int) (*addie.Position, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadPosition] query error: %s", q)
+		return nil, selectFailure(err)
 	}
 
 	if !rows.Next() {
-		return nil, fmt.Errorf("[ReadPosition] position with id=%d does not exist", id)
+		return nil, emptyReadFailure()
 	}
 
 	var x, y, z float32
 	err = rows.Scan(&x, &y, &z)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadPosition] error reading result row")
+		return nil, scanFailure(err)
 	}
 
 	return &addie.Position{x, y, z}, nil
@@ -641,20 +666,16 @@ func CreatePacketConductor(p addie.PacketConductor) (int, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("[CreatePacketConductor] insert failed")
+		return -1, insertFailure(err)
 	}
 	if !rows.Next() {
-		log.Println(err)
-		return -1, fmt.Errorf(
-			"[CreatePacketConductor] pg RETURNING cursor returned nil")
+		return -1, emptyReadbackFailure()
 	}
 
 	var pkt_key int
 	err = rows.Scan(&pkt_key)
 	if err != nil {
-		log.Println(err)
-		return -1, fmt.Errorf("[CreatePacketConductor] faild to read pg RETURNING row")
+		return -1, scanFailure(err)
 	}
 
 	return pkt_key, nil
@@ -669,18 +690,16 @@ func ReadPacketConductor(id int) (*addie.PacketConductor, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadPacketConductor] query error: %s", q)
+		return nil, selectFailure(err)
 	}
 	if !rows.Next() {
-		return nil, fmt.Errorf("[ReadPacketConductor] id=%d does not exist", id)
+		return nil, emptyReadFailure()
 	}
 
 	var capacity, latency int
 	err = rows.Scan(&capacity, &latency)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadPacketConductor] error reading result row")
+		return nil, scanFailure(err)
 	}
 
 	return &addie.PacketConductor{capacity, latency}, nil
@@ -694,44 +713,36 @@ func CreateComputer(c addie.Computer) error {
 	//id insert
 	id_key, err := CreateId(c.Id)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateComputer] Id insert failed")
+		return createFailure(err)
 	}
 
 	//network host insert
 	err = CreateNetworkHostByKey(id_key)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateComputer] Network Host insert failed")
+		return createFailure(err)
 	}
 
 	//position insert
 	pos_key, err := CreatePosition(c.Position)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateComputer] Position insert failed")
+		return createFailure(err)
 	}
 
 	//interfaces insert
 	for _, ifx := range c.Interfaces {
 		err = CreateInterface(id_key, ifx)
 		if err != nil {
-			log.Println(err)
-			return fmt.Errorf("[CreateComputer] Failed to insert interface %s",
-				ifx.Name)
+			return createFailure(err)
 		}
 	}
 
 	//computer insert
-	q := fmt.Sprintf(
-		"INSERT INTO computers (id, os, start_script, position_id) "+
-			"values (%d, '%s', '%s', %d)",
-		id_key, c.OS, c.Start_script, pos_key)
+	q := fmt.Sprintf("INSERT INTO computers (id, os, start_script, position_id) "+
+		"values (%d, '%s', '%s', %d)", id_key, c.OS, c.Start_script, pos_key)
 
 	err = runC(q)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("Error inserting Computer '%s' into the DB", c.Name)
+		return insertFailure(err)
 	}
 
 	return nil
@@ -742,15 +753,13 @@ func UpdateComputer(oid addie.Id, c addie.Computer) error {
 	if oid != c.Id {
 		err := UpdateId(oid, c.Id)
 		if err != nil {
-			log.Println(err)
-			return fmt.Errorf("[UpdateComputer] failed to update id")
+			return updateFailure(err)
 		}
 	}
 
 	id_key, err := ReadIdKey(c.Id)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[UpdateComputer] bad id")
+		return readFailure(err)
 	}
 
 	q := fmt.Sprintf(
@@ -759,11 +768,9 @@ func UpdateComputer(oid addie.Id, c addie.Computer) error {
 
 	err = runC(q)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[UpdateComputer] failed to run computer update query")
+		return updateFailure(err)
 	}
 
-	//return fmt.Errorf("[UpdateComputer] not implememted")
 	return nil
 
 }
@@ -772,8 +779,7 @@ func ReadComputerByKey(id_key int) (*addie.Computer, error) {
 
 	id, err := ReadId(id_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadComputer] bad id key %d", id_key)
+		return nil, readFailure(err)
 	}
 
 	q := fmt.Sprintf(
@@ -782,31 +788,27 @@ func ReadComputerByKey(id_key int) (*addie.Computer, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadComputer] failed to run query: %s", q)
+		return nil, selectFailure(err)
 	}
 
 	if !rows.Next() {
-		return nil, fmt.Errorf("Failed find a computer with id %v", id)
+		return nil, emptyReadFailure()
 	}
 	var os, start_script string
 	var pos_key int
 	err = rows.Scan(&os, &start_script, &pos_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadComputer] failed to read row result")
+		return nil, scanFailure(err)
 	}
 
 	pos, err := ReadPosition(pos_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadComputer] failed to retrieve computer position")
+		return nil, readFailure(err)
 	}
 
 	ifs, err := ReadHostInterfaces(id_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadComputer] failed to get computer interfaces")
+		return nil, readFailure(err)
 	}
 
 	c := addie.Computer{}
@@ -824,9 +826,7 @@ func ReadComputer(id addie.Id) (*addie.Computer, error) {
 
 	id_key, err := ReadIdKey(id)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf(
-			"[ReadComputer] unable to retrieve design or system for the id %v", id)
+		return nil, readFailure(err)
 	}
 
 	return ReadComputerByKey(id_key)
@@ -843,29 +843,25 @@ func CreateRouter(r addie.Router) error {
 	//id insert
 	id_key, err := CreateId(r.Id)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateRouter] Id insert failed")
+		return createFailure(err)
 	}
 
 	//network host insert
 	err = CreateNetworkHostByKey(id_key)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateRouter] Network Host insert failed")
+		return createFailure(err)
 	}
 
 	//position insert
 	pos_key, err := CreatePosition(r.Position)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateRouter] Position insert failed")
+		return createFailure(err)
 	}
 
 	//packet conductor insert
 	pkt_key, err := CreatePacketConductor(r.PacketConductor)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateRouter] Packet conductor insert failed")
+		return createFailure(err)
 	}
 
 	//router insert
@@ -876,8 +872,7 @@ func CreateRouter(r addie.Router) error {
 
 	err = runC(q)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("Error inserting Router '%s' intro the DB", r.Name)
+		return insertFailure(err)
 	}
 
 	return nil
@@ -887,8 +882,7 @@ func ReadRouter(id addie.Id) (*addie.Router, error) {
 
 	id_key, err := ReadIdKey(id)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadRouter] get id %v failed", id)
+		return nil, readFailure(err)
 	}
 
 	q := fmt.Sprintf(
@@ -897,30 +891,26 @@ func ReadRouter(id addie.Id) (*addie.Router, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadRouter] failed to run query: %s", q)
+		return nil, selectFailure(err)
 	}
 	if !rows.Next() {
-		return nil, fmt.Errorf("[ReadRouter] Failed to find router with id %v", id)
+		return nil, emptyReadFailure()
 	}
 
 	var pkt_key, pos_key int
 	err = rows.Scan(&pkt_key, &pos_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadRouter] failed to read row result")
+		return nil, scanFailure(err)
 	}
 
 	pos, err := ReadPosition(pos_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadRouter] failed to get position")
+		return nil, readFailure(err)
 	}
 
 	pkt, err := ReadPacketConductor(pkt_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadRouter] failed to get packet conductor")
+		return nil, readFailure(err)
 	}
 
 	rtr := addie.Router{}
@@ -940,22 +930,19 @@ func CreateSwitch(s addie.Switch) error {
 	//id insert
 	id_key, err := CreateId(s.Id)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateSwitch] Id insert failed")
+		return createFailure(err)
 	}
 
 	//packet conductor insert
 	pkt_key, err := CreatePacketConductor(s.PacketConductor)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateSwitch] Packet Conductor insert failed")
+		return createFailure(err)
 	}
 
 	//position insert
 	pos_key, err := CreatePosition(s.Position)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateRouter] Position insert failed")
+		return createFailure(err)
 	}
 
 	//switch insert
@@ -966,8 +953,7 @@ func CreateSwitch(s addie.Switch) error {
 
 	err = runC(q)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("Error inserting Switch '%s' intro the DB", s.Name)
+		return insertFailure(err)
 	}
 
 	return nil
@@ -977,8 +963,7 @@ func ReadSwitch(id addie.Id) (*addie.Switch, error) {
 
 	id_key, err := ReadIdKey(id)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadSwitch] get id %v failed", id)
+		return nil, readFailure(err)
 	}
 
 	q := fmt.Sprintf(
@@ -987,30 +972,26 @@ func ReadSwitch(id addie.Id) (*addie.Switch, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadSwitch] failed to run query: %s", q)
+		return nil, selectFailure(err)
 	}
 	if !rows.Next() {
-		return nil, fmt.Errorf("[ReadSwitch] Failed to find switch with id %v", id)
+		return nil, emptyReadFailure()
 	}
 
 	var pkt_key, pos_key int
 	err = rows.Scan(&pkt_key, &pos_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadSwitch] failed to read row result")
+		return nil, scanFailure(err)
 	}
 
 	pos, err := ReadPosition(pos_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadSwitch] failed to get position")
+		return nil, readFailure(err)
 	}
 
 	pkt, err := ReadPacketConductor(pkt_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadSwitch] failed to get packet conductor")
+		return nil, readFailure(err)
 	}
 
 	sw := addie.Switch{}
@@ -1029,39 +1010,33 @@ func CreateLink(l addie.Link) error {
 	//id insert
 	id_key, err := CreateId(l.Id)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateLink] Id insert failed")
+		return createFailure(err)
 	}
 
 	//packet conductor insert
 	pkt_key, err := CreatePacketConductor(l.PacketConductor)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateLink] Packet Conductor insert failed")
+		return createFailure(err)
 	}
 
 	//endpoint0
 	ep0_key, err := ReadIdKey(l.Endpoints[0].Id)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateLink] bad endpoint[0]")
+		return readFailure(err)
 	}
 	if0_key, err := ReadInterfaceKey(ep0_key, l.Endpoints[0].IfName)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateLink] bad endpoint[0] interface")
+		return readFailure(err)
 	}
 
 	//endpoint1
 	ep1_key, err := ReadIdKey(l.Endpoints[1].Id)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateLink] bad endpoint[1]")
+		return readFailure(err)
 	}
 	if1_key, err := ReadInterfaceKey(ep0_key, l.Endpoints[0].IfName)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("[CreateLink] bad endpoint[1] interface")
+		return readFailure(err)
 	}
 
 	q := fmt.Sprintf(
@@ -1074,8 +1049,7 @@ func CreateLink(l addie.Link) error {
 
 	err = runC(q)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("Error inserting link '%s' into the DB", l.Name)
+		return insertFailure(err)
 	}
 
 	return nil
@@ -1086,8 +1060,7 @@ func ReadLink(id addie.Id) (*addie.Link, error) {
 
 	id_key, err := ReadIdKey(id)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadLink] get id %v failed", id)
+		return nil, readFailure(err)
 	}
 
 	q := fmt.Sprintf(
@@ -1100,48 +1073,41 @@ func ReadLink(id addie.Id) (*addie.Link, error) {
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadLink] failed to run query: %s", q)
+		return nil, selectFailure(err)
 	}
 	if !rows.Next() {
-		return nil, fmt.Errorf("[ReadLink] failed to find link with id %v", id)
+		return nil, emptyReadFailure()
 	}
 
 	var pkt_key, ep0_key, if0_key, ep1_key, if1_key int
 	err = rows.Scan(&pkt_key, &ep0_key, &if0_key, &ep1_key, &if1_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadLink] failed to read row result")
+		return nil, scanFailure(err)
 	}
 
 	pkt, err := ReadPacketConductor(pkt_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadLink] failed to get packet conductor")
+		return nil, readFailure(err)
 	}
 
 	ep0, err := ReadId(ep0_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadLink] failed to get endpoint[1]")
+		return nil, readFailure(err)
 	}
 
 	ep1, err := ReadId(ep1_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadLink] failed to get endpoint[0]")
+		return nil, readFailure(err)
 	}
 
 	if0, err := ReadInterface(if0_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadLink] failed to get endpoint[0] interface")
+		return nil, readFailure(err)
 	}
 
 	if1, err := ReadInterface(if1_key)
 	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("[ReadLink] failed to get endpoint[1] interface")
+		return nil, readFailure(err)
 	}
 
 	lnk := addie.Link{}

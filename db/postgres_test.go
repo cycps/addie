@@ -12,11 +12,11 @@ func TestReadDesigns(t *testing.T) {
 
 	designs, err := ReadDesigns()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	_, ok := designs["design47"]
 	if !ok {
-		t.Error("The database does not contain design47")
+		t.Fatal("The database does not contain design47")
 	}
 
 }
@@ -25,30 +25,30 @@ func TestDesignCreateDestroy(t *testing.T) {
 
 	err := CreateDesign("caprica")
 	if err != nil {
-		t.Error("failed to create caprica")
+		t.Fatal("failed to create caprica")
 	}
 
 	designs, err := ReadDesigns()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	_, ok := designs["caprica"]
 	if !ok {
-		t.Error("caprica has not been created")
+		t.Fatal("caprica has not been created")
 	}
 
 	err = DeleteDesign("caprica")
 	if err != nil {
-		t.Error("failed to trash caprica")
+		t.Fatal("failed to trash caprica")
 	}
 
 	designs, err = ReadDesigns()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	_, ok = designs["caprica"]
 	if ok {
-		t.Error("caprica persists")
+		t.Fatal("caprica persists")
 	}
 
 }
@@ -57,39 +57,39 @@ func TestSysCreateDestroy(t *testing.T) {
 
 	err := CreateDesign("caprica")
 	if err != nil {
-		t.Error("failed to create caprica")
+		t.Fatal("failed to create caprica")
 	}
 
 	designs, err := ReadDesigns()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	_, ok := designs["caprica"]
 	if !ok {
-		t.Error("caprica has not been created")
+		t.Fatal("caprica has not been created")
 	}
 
 	_, err = CreateSystem("caprica", "root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	_, err = ReadSysKey("caprica", "root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = DeleteDesign("caprica")
 	if err != nil {
-		t.Error("failed to trash caprica")
+		t.Fatal("failed to trash caprica")
 	}
 
 	designs, err = ReadDesigns()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	_, ok = designs["caprica"]
 	if ok {
-		t.Error("caprica persists")
+		t.Fatal("caprica persists")
 	}
 
 }
@@ -219,15 +219,15 @@ func TestOneCreateDestroyUpdate(t *testing.T) {
 	}
 
 	if rtr.Id != _rtr.Id {
-		t.Error("router round trip failed for: id")
+		t.Fatal("router round trip failed for: id")
 	}
 
 	if rtr.PacketConductor != _rtr.PacketConductor {
-		t.Error("router round trip failed for: packet conductor")
+		t.Fatal("router round trip failed for: packet conductor")
 	}
 
 	if rtr.Position != _rtr.Position {
-		t.Error("router round trip failed for: position")
+		t.Fatal("router round trip failed for: position")
 	}
 
 	//Add a switch ---------------
@@ -254,14 +254,14 @@ func TestOneCreateDestroyUpdate(t *testing.T) {
 	}
 
 	if sw.Id != _sw.Id {
-		t.Error("router round trip failed for: Id")
+		t.Fatal("router round trip failed for: Id")
 	}
 
 	if sw.PacketConductor != _sw.PacketConductor {
-		t.Error("switch round trip failed for: Packet Conductor")
+		t.Fatal("switch round trip failed for: Packet Conductor")
 	}
 	if sw.Position != _sw.Position {
-		t.Error("switch round trip failed for: Position")
+		t.Fatal("switch round trip failed for: Position")
 	}
 
 	//Add a link -----------------
@@ -290,14 +290,14 @@ func TestOneCreateDestroyUpdate(t *testing.T) {
 	}
 
 	if lnk.Id != _lnk.Id {
-		t.Error("link round trip failed for: Id")
+		t.Fatal("link round trip failed for: Id")
 	}
 	if lnk.PacketConductor != _lnk.PacketConductor {
-		t.Error("link round trip failed for: PacketConductor")
+		t.Fatal("link round trip failed for: PacketConductor")
 	}
 	if lnk.Endpoints != _lnk.Endpoints {
 		t.Log("%v != %v", lnk.Endpoints, _lnk.Endpoints)
-		t.Error("link round trip failed for: Endpoints")
+		t.Fatal("link round trip failed for: Endpoints")
 	}
 
 }
