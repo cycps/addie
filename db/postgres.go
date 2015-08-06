@@ -66,6 +66,9 @@ func dbPing() error {
 	return nil
 }
 
+func RunQ(q string) (*sql.Rows, error) {
+	return runQ(q)
+}
 func runQ(q string) (*sql.Rows, error) {
 	err := dbPing()
 	if err != nil {

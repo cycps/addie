@@ -1,11 +1,9 @@
 package main
 
 import (
-	"crypto/rand"
-	"crypto/sha512"
 	"fmt"
+	"github.com/cycps/addie/db"
 	"github.com/julienschmidt/httprouter"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -16,23 +14,39 @@ import (
 
 var cypdir = os.ExpandEnv("$HOME/.cypress")
 
-func onLogin(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func authUser(name, password string) (bool, error) {
 
-	//buf := new(bytes.Buffer)
-	//buf.ReadFrom(r.Body)
-	u := r.FormValue("username")
-	p := r.FormValue("password")
+	q := fmt.Sprintf("SELECT "+
+		"(pwh = crypt('%s', pwh)) as pwmatch FROM users "+
+		"WHERE name = '%s'", password, name)
 
-	setPassword(u, p)
+	rows, err := db.RunQ(q)
+	if err != nil {
+		log.Println(err)
+		return false, fmt.Errorf("unable to query db")
+	}
+	if !rows.Next() {
+		log.Println("user does not exist")
+		return false, nil
+	}
+	var pwmatch bool
+	err = rows.Scan(&pwmatch)
+	if err != nil {
+		log.Println("error reading db result")
+	}
+	if !pwmatch {
+		log.Printf("bad password for user '%s", name)
+	}
 
-	log.Printf("login -- (%s,%s)", u, p)
+	return pwmatch, nil
+}
+
+func newSessionCookie() (*http.Cookie, error) {
 
 	uuid, err := exec.Command("uuidgen").Output()
 	if err != nil {
 		log.Println(err)
-		log.Println("uuidgen failed")
-		w.WriteHeader(500)
-		return
+		return nil, fmt.Errorf("uuidgen failed")
 	}
 	cookie := new(http.Cookie)
 	cookie.Name = "cypress-session-cookie"
@@ -41,36 +55,84 @@ func onLogin(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	dur, err := time.ParseDuration("1h")
 	if err != nil {
 		log.Println(err)
-		log.Println("parse duration failed")
-		w.WriteHeader(500)
-		return
+		return nil, fmt.Errorf("parse duration failed")
 	}
 	cookie.Expires = time.Now().Add(dur)
 
-	http.SetCookie(w, cookie)
+	return cookie, nil
 
-	w.Write([]byte("hello there " + u))
 }
 
-func setPassword(user string, password string) error {
-	salt := make([]byte, 32)
-	_, err := io.ReadFull(rand.Reader, salt)
+var userCookies = make(map[string]string)
+
+func onLogin(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	u := r.FormValue("username")
+	p := r.FormValue("password")
+
+	log.Printf("user login: '%s'", u)
+
+	isValidUser, err := authUser(u, p)
 	if err != nil {
 		log.Println(err)
-		return fmt.Errorf("failed to generate salt")
+		log.Println("user auth failed")
+		w.WriteHeader(500)
+		return
 	}
-	salted := string(salt) + password
+	if !isValidUser {
+		log.Printf("scalawagerry detected from '%s'", u)
+		w.WriteHeader(401) //unauthorized
+		return
+	}
 
-	hash := sha512.Sum512([]byte(salted))
-	log.Printf("%x", hash)
+	//if we are here the user is valid
+	cookie, err := newSessionCookie()
+	if err != nil {
+		log.Println("error creating session cookie")
+		log.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+	userCookies[cookie.Value] = u
+	http.SetCookie(w, cookie)
 
-	return nil
+	log.Printf("user login success: '%s'", u)
+
+	w.WriteHeader(200)
+}
+
+func thisUser(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	cookie, err := r.Cookie("cypress-session-cookie")
+	if err != nil {
+		log.Println(err)
+		log.Println("[thisUser] error getting cookie")
+		w.WriteHeader(401)
+		return
+	}
+	if cookie == nil {
+		log.Println("[thisUser] nil cookie")
+		w.WriteHeader(401)
+		return
+	}
+	user, ok := userCookies[cookie.Value]
+	if !ok {
+		log.Printf("[thisUser] unkown cookie '%s'", cookie.Value)
+		w.WriteHeader(401)
+		return
+	}
+
+	log.Printf("[thisUser] %s", user)
+
+	w.Write([]byte(user))
+
 }
 
 func main() {
 
 	router := httprouter.New()
 	router.POST("/login", onLogin)
+	router.GET("/thisUser", thisUser)
 
 	log.Printf("listening on http://::0:8081")
 	log.Fatal(
