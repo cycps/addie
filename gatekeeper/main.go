@@ -52,7 +52,7 @@ func newSessionCookie() (*http.Cookie, error) {
 	cookie.Name = "cypress-session-cookie"
 	cookie.Value = strings.TrimSuffix(string(uuid), "\n")
 	cookie.Path = "/"
-	dur, err := time.ParseDuration("1h")
+	dur, err := time.ParseDuration("47m")
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("parse duration failed")
