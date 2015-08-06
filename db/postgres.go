@@ -212,14 +212,41 @@ func notImplementedFailure() error {
 
 // CRUD ========================================================================
 
+// Users -----------------------------------------------------------------------
+
+func ReadUserKey(name string) (int, error) {
+
+	q := fmt.Sprintf("SELECT id FROM users WHERE name = '%s'", name)
+	key, err := getKey(q)
+	if err != nil {
+		return -1, selectFailure(err)
+	}
+
+	return key, nil
+}
+
 // Designs ---------------------------------------------------------------------
 
-func CreateDesign(name string) error {
+func CreateDesign(name string, user string) error {
 
-	q := fmt.Sprintf("INSERT INTO designs (name) VALUES ('%s')", name)
-	err := runC(q)
+	//grab the user key
+	user_key, err := ReadUserKey(user)
+	if err != nil {
+		return readFailure(err)
+	}
+
+	q := fmt.Sprintf("INSERT INTO designs (name, owner) VALUES ('%s', %d)",
+		name, user_key)
+
+	err = runC(q)
 	if err != nil {
 		return insertFailure(err)
+	}
+
+	//every design starts life with a 'root' system
+	_, err = CreateSystem(name, "root")
+	if err != nil {
+		return createFailure(err)
 	}
 
 	return nil

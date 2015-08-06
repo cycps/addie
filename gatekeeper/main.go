@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/cycps/addie/db"
+	"github.com/cycps/addie/protocol"
 	"github.com/julienschmidt/httprouter"
 	"log"
 	"net/http"
@@ -101,31 +102,66 @@ func onLogin(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.WriteHeader(200)
 }
 
-func thisUser(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func getUser(r *http.Request) (string, error) {
 
 	cookie, err := r.Cookie("cypress-session-cookie")
 	if err != nil {
 		log.Println(err)
-		log.Println("[thisUser] error getting cookie")
-		w.WriteHeader(401)
-		return
+		return "", fmt.Errorf("[getUser] error getting cookie")
 	}
 	if cookie == nil {
-		log.Println("[thisUser] nil cookie")
-		w.WriteHeader(401)
-		return
+		return "", fmt.Errorf("[getUser] nil cookie")
 	}
 	user, ok := userCookies[cookie.Value]
 	if !ok {
-		log.Printf("[thisUser] unkown cookie '%s'", cookie.Value)
+		return "", fmt.Errorf("[getUser] unkown cookie '%s'", cookie.Value)
+	}
+
+	log.Printf("[getUser] %s", user)
+
+	return user, nil
+}
+
+func thisUser(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	user, err := getUser(r)
+	if err != nil {
 		w.WriteHeader(401)
 		return
 	}
 
-	log.Printf("[thisUser] %s", user)
-
 	w.Write([]byte(user))
 
+}
+
+func newXP(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	user, err := getUser(r)
+	if err != nil {
+		w.WriteHeader(401)
+		return
+	}
+
+	msg := new(protocol.NewXP)
+	err = protocol.Unpack(r, &msg)
+	if err != nil {
+		log.Printf("error unpacking newXP message")
+		log.Println(err)
+		w.WriteHeader(400)
+		return
+	}
+
+	log.Printf("Creating xp '%s` for user `%s`", msg.Name, user)
+
+	err = db.CreateDesign(msg.Name, user)
+	if err != nil {
+		log.Println(err)
+		log.Printf("[newXP] error creating design entry db")
+		w.WriteHeader(500)
+		return
+	}
+
+	w.WriteHeader(200)
 }
 
 func main() {
@@ -133,6 +169,7 @@ func main() {
 	router := httprouter.New()
 	router.POST("/login", onLogin)
 	router.GET("/thisUser", thisUser)
+	router.POST("/newXP", newXP)
 
 	log.Printf("listening on http://::0:8081")
 	log.Fatal(

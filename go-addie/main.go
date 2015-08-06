@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/cycps/addie"
@@ -31,19 +30,6 @@ func loadDesign(id string) {
 
 	design = addie.EmptyDesign(id)
 
-}
-
-func unpack(r *http.Request, x interface{}) error {
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(r.Body)
-	err := json.Unmarshal(buf.Bytes(), &x)
-	if err != nil {
-		log.Println("[unpack] bad message")
-		log.Println(err)
-		log.Println(buf.String())
-		return nil
-	}
-	return nil
 }
 
 func dbCreate(e addie.Identify) {
@@ -127,7 +113,7 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	//unpack the message
 	msg := new(protocol.Update)
-	err := unpack(r, msg)
+	err := protocol.Unpack(r, msg)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -261,10 +247,11 @@ func onDelete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 func listen() {
 
 	router := httprouter.New()
-	router.POST("/:xpid/design/update", onUpdate)
+	//router.POST("/:xpid/design/update", onUpdate)
+	router.POST("/"+design.Name+"/design/update", onUpdate)
 	//router.POST("/:xpid/design/delete", onDelete)
 
-	log.Printf("listening on https://::0:8080/%s/", design.Name)
+	log.Printf("listening on https://::0:8080/%s/design/", design.Name)
 	log.Fatal(
 		http.ListenAndServeTLS(":8080",
 			cypdir+"/keys/cert.pem",
