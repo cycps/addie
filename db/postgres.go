@@ -35,6 +35,7 @@ func dbConnect() error {
 		log.Println(err)
 		return errors.New("Could not open DB connection")
 	}
+	//db.SetMaxOpenConns(5)
 	return nil
 }
 
@@ -196,6 +197,14 @@ func createFailure(cause error) error {
 	return callerFailure(cause, "create failed")
 }
 
+func transactBeginFailure(cause error) error {
+	return callerFailure(cause, "transaction begin failed")
+}
+
+func transactEndFailure(cause error) error {
+	return callerFailure(cause, "transaction end failed")
+}
+
 func emptyReadbackFailure() error {
 	return callerFailure(fmt.Errorf("the insert readback resulted in 0 rows"),
 		"empty readback failure")
@@ -302,7 +311,90 @@ func DeleteDesign(name string) error {
 	return nil
 }
 
-// Systemns -------------------------------------------------------------------
+func ReadDesign(name string) (*addie.Design, error) {
+
+	/*
+		err := beginTx()
+		if err != nil {
+			return nil, transactBeginFailure(err)
+		}
+	*/
+
+	key, err := ReadDesignKey(name)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	dsg := addie.EmptyDesign(name)
+
+	//we are going to go from the top down, grabbing all of the systems
+	//and then grabbing the components of the systems
+	q := fmt.Sprintf("SELECT id FROM systems WHERE design_id = %d", key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	for rows.Next() {
+
+		var sys_key int
+		err := rows.Scan(&sys_key)
+		if err != nil {
+			return nil, scanFailure(err)
+		}
+
+		//computers
+		computers, err := ReadSystemComputers(sys_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		for _, c := range computers {
+			dsg.Elements[c.Id] = c
+		}
+
+		//switches
+		switches, err := ReadSystemSwitches(sys_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		for _, s := range switches {
+			dsg.Elements[s.Id] = s
+		}
+
+		//routers
+		routers, err := ReadSystemRouters(sys_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		for _, r := range routers {
+			dsg.Elements[r.Id] = r
+		}
+
+		//links
+		links, err := ReadSystemLinks(sys_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		for _, l := range links {
+			dsg.Elements[l.Id] = l
+		}
+
+	}
+
+	/*
+		endTx()
+		if err != nil {
+			return nil, transactEndFailure(err)
+		}
+	*/
+
+	return &dsg, nil
+}
+
+// Systems --------------------------------------------------------------------
 
 func CreateSystem(design string, name string) (int, error) {
 
@@ -350,6 +442,39 @@ func ReadSysKey(design string, name string) (int, error) {
 
 	return sys_key, nil
 
+}
+
+func ReadSystemComputers(key int) ([]addie.Computer, error) {
+
+	var result []addie.Computer
+
+	q := fmt.Sprintf(
+		"SELECT computers.id FROM computers "+
+			"INNER JOIN ids on computers.id = ids.id "+
+			"WHERE ids.sys_id = %d", key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	for rows.Next() {
+		var comp_key int
+		err := rows.Scan(&comp_key)
+		if err != nil {
+			return nil, scanFailure(err)
+		}
+
+		comp, err := ReadComputerByKey(comp_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		result = append(result, *comp)
+	}
+
+	return result, nil
 }
 
 func SysRecycle() error {
@@ -409,9 +534,15 @@ func CreateId(id addie.Id) (int, error) {
 
 func ReadId(id int) (*addie.Id, error) {
 
-	//fetch the id
+	_id := new(addie.Id)
+
 	q := fmt.Sprintf(
-		"SELECT name, sys_id FROM ids WHERE id = %d", id)
+		"select ids.name, systems.name, designs.name "+
+			"from ids "+
+			"inner join systems on ids.sys_id = systems.id "+
+			"inner join designs on systems.design_id = designs.id "+
+			"where ids.id = %d", id)
+
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
@@ -420,47 +551,12 @@ func ReadId(id int) (*addie.Id, error) {
 	if !rows.Next() {
 		return nil, emptyReadFailure()
 	}
-	var id_name string
-	var sys_key int
-	err = rows.Scan(&id_name, &sys_key)
+	err = rows.Scan(&_id.Name, &_id.Sys, &_id.Design)
 	if err != nil {
 		return nil, scanFailure(err)
 	}
 
-	//fetch the sys
-	q = fmt.Sprintf(
-		"SELECT name, design_id FROM systems WHERE id=%d", sys_key)
-	rows, err = runQ(q)
-	if err != nil {
-		return nil, selectFailure(err)
-	}
-	if !rows.Next() {
-		return nil, emptyReadFailure()
-	}
-	var sys_name string
-	var dsg_key int
-	err = rows.Scan(&sys_name, &dsg_key)
-	if err != nil {
-		return nil, scanFailure(err)
-	}
-
-	//fetch the design
-	q = fmt.Sprintf(
-		"SELECT name FROM designs WHERE id=%d", dsg_key)
-	rows, err = runQ(q)
-	if err != nil {
-		return nil, selectFailure(err)
-	}
-	if !rows.Next() {
-		return nil, emptyReadFailure()
-	}
-	var dsg_name string
-	err = rows.Scan(&dsg_name)
-	if err != nil {
-		return nil, scanFailure(err)
-	}
-
-	return &addie.Id{id_name, sys_name, dsg_name}, nil
+	return _id, nil
 
 }
 
@@ -946,6 +1042,7 @@ func ReadComputerByKey(id_key int) (*addie.Computer, error) {
 	if err != nil {
 		return nil, scanFailure(err)
 	}
+	rows.Close()
 
 	pos, err := ReadPosition(pos_key)
 	if err != nil {
@@ -1039,6 +1136,7 @@ func ReadRouterByKey(key int) (*addie.Router, error) {
 	if err != nil {
 		return nil, scanFailure(err)
 	}
+	rows.Close()
 
 	pos, err := ReadPosition(pos_key)
 	if err != nil {
@@ -1112,6 +1210,40 @@ func UpdateRouter(oid addie.Id, old addie.Router, r addie.Router) (int, error) {
 	return key, nil
 }
 
+func ReadSystemRouters(key int) ([]addie.Router, error) {
+
+	var result []addie.Router
+
+	q := fmt.Sprintf(
+		"SELECT routers.id FROM routers "+
+			"INNER JOIN ids on routers.id = ids.id "+
+			"WHERE ids.sys_id = %d", key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	for rows.Next() {
+		var rtr_key int
+		err := rows.Scan(&rtr_key)
+		if err != nil {
+			return nil, scanFailure(err)
+		}
+
+		rtr, err := ReadRouterByKey(rtr_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		result = append(result, *rtr)
+	}
+
+	return result, nil
+
+}
+
 // Switches --------------------------------------------------------------------------
 
 func CreateSwitch(s addie.Switch) error {
@@ -1172,6 +1304,7 @@ func ReadSwitchByKey(key int) (*addie.Switch, error) {
 	if err != nil {
 		return nil, scanFailure(err)
 	}
+	rows.Close()
 
 	pos, err := ReadPosition(pos_key)
 	if err != nil {
@@ -1243,6 +1376,40 @@ func UpdateSwitch(oid addie.Id, old addie.Switch, s addie.Switch) (int, error) {
 	}
 
 	return key, nil
+
+}
+
+func ReadSystemSwitches(key int) ([]addie.Switch, error) {
+
+	var result []addie.Switch
+
+	q := fmt.Sprintf(
+		"SELECT switches.id FROM switches "+
+			"INNER JOIN ids on switches.id = ids.id "+
+			"WHERE ids.sys_id = %d", key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	for rows.Next() {
+		var sw_key int
+		err := rows.Scan(&sw_key)
+		if err != nil {
+			return nil, scanFailure(err)
+		}
+
+		sw, err := ReadSwitchByKey(sw_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		result = append(result, *sw)
+	}
+
+	return result, nil
 
 }
 
@@ -1327,6 +1494,7 @@ func ReadLinkByKey(key int) (*addie.Link, error) {
 	if err != nil {
 		return nil, scanFailure(err)
 	}
+	rows.Close()
 
 	pkt, err := ReadPacketConductor(pkt_key)
 	if err != nil {
@@ -1434,4 +1602,38 @@ func UpdateLink(oid addie.Id, l addie.Link) (int, error) {
 	}
 
 	return key, nil
+}
+
+func ReadSystemLinks(key int) ([]addie.Link, error) {
+
+	var result []addie.Link
+
+	q := fmt.Sprintf(
+		"SELECT links.id FROM links "+
+			"INNER JOIN ids on links.id = ids.id "+
+			"WHERE ids.sys_id = %d", key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	for rows.Next() {
+		var lnk_key int
+		err := rows.Scan(&lnk_key)
+		if err != nil {
+			return nil, scanFailure(err)
+		}
+
+		lnk, err := ReadLinkByKey(lnk_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		result = append(result, *lnk)
+	}
+
+	return result, nil
+
 }

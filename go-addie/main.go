@@ -10,6 +10,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"reflect"
+	"strings"
 )
 
 var design addie.Design
@@ -244,12 +246,60 @@ func onDelete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 }
 
+func onRead(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	w.WriteHeader(200)
+
+}
+
+type TypeWrapper struct {
+	Type   string
+	Object interface{}
+}
+
+func typeWrap(obj interface{}) TypeWrapper {
+
+	return TypeWrapper{Type: strings.ToLower(reflect.TypeOf(obj).Name()), Object: obj}
+
+}
+
+func doRead() error {
+
+	dsg, err := db.ReadDesign(design.Name)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Failed to read design")
+	}
+
+	log.Println(dsg)
+
+	for _, v := range dsg.Elements {
+		jbits, err := json.Marshal(typeWrap(v))
+		if err != nil {
+			log.Println(err)
+			return fmt.Errorf("Failed to marshal element to JSON")
+		}
+		log.Println(string(jbits))
+	}
+
+	design = *dsg
+
+	return nil
+}
+
 func listen() {
 
 	router := httprouter.New()
 	//router.POST("/:xpid/design/update", onUpdate)
 	router.POST("/"+design.Name+"/design/update", onUpdate)
+	router.GET("/"+design.Name+"/design/read", onRead)
 	//router.POST("/:xpid/design/delete", onDelete)
+
+	err := doRead()
+	if err != nil {
+		log.Println(err)
+		log.Fatal("Could not read design from db")
+	}
 
 	log.Printf("listening on https://::0:8080/%s/design/", design.Name)
 	log.Fatal(
