@@ -7,8 +7,17 @@ import (
 	"fmt"
 )
 
-type Id struct{ Name, Sys, Design string }
-type Position struct{ X, Y, Z float32 }
+type Id struct {
+	Name   string `json:"name"`
+	Sys    string `json:"sys"`
+	Design string `json:"design"`
+}
+
+type Position struct {
+	X float32 `json:"x"`
+	Y float32 `json:"y"`
+	Z float32 `json:"z"`
+}
 
 type Identify interface {
 	Identify() Id
@@ -18,7 +27,7 @@ type Identify interface {
 
 type NetHost struct {
 	Id
-	Interfaces map[string]Interface
+	Interfaces map[string]Interface `json:"interfaces"`
 }
 
 func (h *NetHost) Equals(x *NetHost) bool {
@@ -41,15 +50,15 @@ func (h *NetHost) Equals(x *NetHost) bool {
 }
 
 type Interface struct {
-	Name string
+	Name string `json:"name"`
 	PacketConductor
 }
 
 type Computer struct {
 	NetHost
-	Position     Position
-	OS           string
-	Start_script string
+	Position     Position `json:"position"`
+	OS           string   `json:"os"`
+	Start_script string   `start_script:"start_script"`
 }
 
 func (c Computer) Identify() Id { return c.Id }
@@ -64,14 +73,14 @@ func (c *Computer) Equals(x *Computer) bool {
 }
 
 type PacketConductor struct {
-	Capacity int
-	Latency  int
+	Capacity int `json:"capacity"`
+	Latency  int `json:"latency"`
 }
 
 type Switch struct {
 	NetHost
 	PacketConductor
-	Position Position
+	Position Position `json:"position"`
 }
 
 func (s Switch) Identify() Id { return s.Id }
@@ -87,7 +96,7 @@ func (s *Switch) Equals(x *Switch) bool {
 type Router struct {
 	NetHost
 	PacketConductor
-	Position Position
+	Position Position `json:"position"`
 }
 
 func (r Router) Identify() Id { return r.Id }
@@ -100,14 +109,14 @@ func (r *Router) Equals(x *Router) bool {
 
 type NetIfRef struct {
 	Id
-	IfName string
+	IfName string `json:"ifname"`
 }
 
 type Link struct {
 	Id
-	Path []Position
+	Path []Position `json:"path"`
 	PacketConductor
-	Endpoints [2]NetIfRef
+	Endpoints [2]NetIfRef `json:"endpoints"`
 }
 
 func (l Link) Identify() Id { return l.Id }
@@ -124,8 +133,8 @@ func (l *Link) Equals(x *Link) bool {
 
 type Model struct {
 	Id
-	Position  Position
-	Equations []string
+	Position  Position `json:"position"`
+	Equations []string `json:"equations"`
 }
 
 func (m Model) Identify() Id { return m.Id }
@@ -137,16 +146,17 @@ type VarRef struct {
 
 type Equality struct {
 	Id
-	lhs, rhs VarRef
+	lhs VarRef `json:"lhs"`
+	rhs VarRef `json:"rhs"`
 }
 
 //Cyber-Physical---------------------------------------------------------------
 
 type Sensor struct {
 	Id
-	Position Position
-	Target   VarRef
-	Rate     uint
+	Position Position `json:"position"`
+	Target   VarRef   `json:"target"`
+	Rate     uint     `json:"rate"`
 }
 
 func (s Sensor) Identify() Id { return s.Id }
@@ -155,16 +165,16 @@ type Bound struct{ Min, Max float64 }
 type Actuator struct {
 	Id
 	Position     Position
-	Target       VarRef
-	StaticLimit  Bound
-	DynamicLimit Bound
+	Target       VarRef `json:"target"`
+	StaticLimit  Bound  `json:"static_limit"`
+	DynamicLimit Bound  `json:"dynamic_limit"`
 }
 
 func (a Actuator) Identify() Id { return a.Id }
 
 type Design struct {
-	Name     string
-	Elements map[Id]Identify
+	Name     string          `json:"name"`
+	Elements map[Id]Identify `json:"elements"`
 }
 
 func (d *Design) String() string {

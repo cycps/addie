@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"strings"
 )
 
 var design addie.Design
@@ -248,18 +247,27 @@ func onDelete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 func onRead(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
-	w.WriteHeader(200)
+	json, err := modelJson()
+
+	if err != nil {
+		log.Println("modelJson failed")
+		w.WriteHeader(500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(json)
 
 }
 
 type TypeWrapper struct {
-	Type   string
-	Object interface{}
+	Type   string      `json:"type"`
+	Object interface{} `json:"object"`
 }
 
 func typeWrap(obj interface{}) TypeWrapper {
 
-	return TypeWrapper{Type: strings.ToLower(reflect.TypeOf(obj).Name()), Object: obj}
+	return TypeWrapper{Type: reflect.TypeOf(obj).Name(), Object: obj}
 
 }
 
@@ -271,20 +279,37 @@ func doRead() error {
 		return fmt.Errorf("Failed to read design")
 	}
 
-	log.Println(dsg)
-
-	for _, v := range dsg.Elements {
-		jbits, err := json.Marshal(typeWrap(v))
-		if err != nil {
-			log.Println(err)
-			return fmt.Errorf("Failed to marshal element to JSON")
-		}
-		log.Println(string(jbits))
-	}
-
 	design = *dsg
 
 	return nil
+}
+
+type JsonModel struct {
+	Name     string        `json:"name"`
+	Elements []TypeWrapper `json:"elements"`
+}
+
+func modelJson() ([]byte, error) {
+
+	var mdl JsonModel
+	mdl.Name = design.Name
+
+	mdl.Elements = make([]TypeWrapper, len(design.Elements))
+
+	i := 0
+	for _, v := range design.Elements {
+		mdl.Elements[i] = typeWrap(v)
+		i++
+	}
+
+	_json, err := json.Marshal(mdl)
+	if err != nil {
+		log.Println(err)
+		return nil, fmt.Errorf("Failed to marshal element array to JSON")
+	}
+
+	return _json, nil
+
 }
 
 func listen() {
