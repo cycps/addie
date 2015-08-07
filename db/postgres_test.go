@@ -8,7 +8,9 @@ import (
 	"testing"
 )
 
-func TestReadDesigns(t *testing.T) {
+var owner = "murphy"
+
+func testReadDesigns(t *testing.T) {
 
 	designs, err := ReadDesigns()
 	if err != nil {
@@ -23,8 +25,9 @@ func TestReadDesigns(t *testing.T) {
 
 func TestDesignCreateDestroy(t *testing.T) {
 
-	err := CreateDesign("caprica")
+	err := CreateDesign("caprica", owner)
 	if err != nil {
+		t.Log(err)
 		t.Fatal("failed to create caprica")
 	}
 
@@ -37,8 +40,9 @@ func TestDesignCreateDestroy(t *testing.T) {
 		t.Fatal("caprica has not been created")
 	}
 
-	err = DeleteDesign("caprica")
+	err = DeleteDesign("caprica", owner)
 	if err != nil {
+		t.Log(err)
 		t.Fatal("failed to trash caprica")
 	}
 
@@ -48,6 +52,7 @@ func TestDesignCreateDestroy(t *testing.T) {
 	}
 	_, ok = designs["caprica"]
 	if ok {
+		t.Log(err)
 		t.Fatal("caprica persists")
 	}
 
@@ -55,7 +60,7 @@ func TestDesignCreateDestroy(t *testing.T) {
 
 func TestSysCreateDestroy(t *testing.T) {
 
-	err := CreateDesign("caprica")
+	err := CreateDesign("caprica", owner)
 	if err != nil {
 		t.Fatal("failed to create caprica")
 	}
@@ -69,16 +74,12 @@ func TestSysCreateDestroy(t *testing.T) {
 		t.Fatal("caprica has not been created")
 	}
 
-	_, err = CreateSystem("caprica", "root")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ReadSysKey("caprica", "root")
+	_, err = ReadSysKey("root", "caprica", owner)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = DeleteDesign("caprica")
+	err = DeleteDesign("caprica", owner)
 	if err != nil {
 		t.Fatal("failed to trash caprica")
 	}
@@ -113,13 +114,13 @@ func addComputerTest(t *testing.T) addie.Computer {
 	c.OS = "Ubuntu-15.04"
 	c.Start_script = "make_muffins.sh"
 
-	err := CreateComputer(c)
+	err := CreateComputer(c, owner)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to insert computer")
 	}
 
-	_c, err := ReadComputer(addie.Id{"c", "root", "caprica"})
+	_c, err := ReadComputer(addie.Id{"c", "root", "caprica"}, owner)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to retrieve computer")
@@ -135,7 +136,7 @@ func addComputerTest(t *testing.T) addie.Computer {
 
 func modifyComputerTest(t *testing.T, c addie.Computer) addie.Computer {
 
-	key, err := ReadIdKey(c.Id)
+	key, err := ReadIdKey(c.Id, owner)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("computer to modify does not exist")
@@ -149,7 +150,7 @@ func modifyComputerTest(t *testing.T, c addie.Computer) addie.Computer {
 		d.Interfaces[k] = v
 	}
 
-	_, err = UpdateComputer(c.Id, c, d)
+	_, err = UpdateComputer(c.Id, c, d, owner)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to update computer")
@@ -184,13 +185,13 @@ func addRouterTest(t *testing.T) addie.Router {
 	rtr.Capacity = 1000
 	rtr.Position = addie.Position{4, 7, 4}
 
-	err := CreateRouter(rtr)
+	err := CreateRouter(rtr, owner)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to insert router")
 	}
 
-	_rtr, err := ReadRouter(addie.Id{"rtr", "root", "caprica"})
+	_rtr, err := ReadRouter(addie.Id{"rtr", "root", "caprica"}, owner)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to get router")
@@ -213,7 +214,7 @@ func addRouterTest(t *testing.T) addie.Router {
 
 func modifyRouterTest(t *testing.T, r addie.Router) addie.Router {
 
-	key, err := ReadIdKey(r.Id)
+	key, err := ReadIdKey(r.Id, owner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +224,7 @@ func modifyRouterTest(t *testing.T, r addie.Router) addie.Router {
 	s.Latency = 222
 	s.Capacity = 333
 
-	_, err = UpdateRouter(r.Id, r, s)
+	_, err = UpdateRouter(r.Id, r, s, owner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,13 +255,13 @@ func addSwitchTest(t *testing.T) addie.Switch {
 	sw.Capacity = 100000
 	sw.Position = addie.Position{100, 100, 20}
 
-	err := CreateSwitch(sw)
+	err := CreateSwitch(sw, owner)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to insert switch")
 	}
 
-	_sw, err := ReadSwitch(sw.Id)
+	_sw, err := ReadSwitch(sw.Id, owner)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to get switch")
@@ -283,7 +284,7 @@ func addSwitchTest(t *testing.T) addie.Switch {
 
 func modifySwitchTest(t *testing.T, s addie.Switch) addie.Switch {
 
-	key, err := ReadIdKey(s.Id)
+	key, err := ReadIdKey(s.Id, owner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +294,7 @@ func modifySwitchTest(t *testing.T, s addie.Switch) addie.Switch {
 	u.Latency = 567
 	u.Capacity = 987
 
-	_, err = UpdateSwitch(s.Id, s, u)
+	_, err = UpdateSwitch(s.Id, s, u, owner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,13 +327,13 @@ func addLinkTest(t *testing.T, c addie.Computer) addie.Link {
 	lnk.Endpoints[0] = addie.NetIfRef{c.Id, "eth0"}
 	lnk.Endpoints[1] = addie.NetIfRef{c.Id, "eth0"}
 
-	err := CreateLink(lnk)
+	err := CreateLink(lnk, owner)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to insert link")
 	}
 
-	_lnk, err := ReadLink(lnk.Id)
+	_lnk, err := ReadLink(lnk.Id, owner)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to get link")
@@ -354,7 +355,7 @@ func addLinkTest(t *testing.T, c addie.Computer) addie.Link {
 }
 
 func modifyLinkTest(t *testing.T, l addie.Link) addie.Link {
-	key, err := ReadIdKey(l.Id)
+	key, err := ReadIdKey(l.Id, owner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,7 +365,7 @@ func modifyLinkTest(t *testing.T, l addie.Link) addie.Link {
 	m.Latency = 1234
 	m.Capacity = 4680
 
-	_, err = UpdateLink(l.Id, m)
+	_, err = UpdateLink(l.Id, m, owner)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,7 +387,7 @@ func modifyLinkTest(t *testing.T, l addie.Link) addie.Link {
 
 func TestOneCreateDestroyUpdate(t *testing.T) {
 
-	err := CreateDesign("caprica")
+	err := CreateDesign("caprica", owner)
 	if err != nil {
 		t.Log(err)
 		t.Fatal("failed to create caprica")
@@ -394,18 +395,12 @@ func TestOneCreateDestroyUpdate(t *testing.T) {
 
 	//ghetto transaction
 	defer func() {
-		err = DeleteDesign("caprica") //on cascade delete cleans up everything
+		err = DeleteDesign("caprica", owner) //on cascade delete cleans up everything
 		if err != nil {
 			t.Log(err)
 			t.Fatal("failed to trash caprica")
 		}
 	}()
-
-	_, err = CreateSystem("caprica", "root")
-	if err != nil {
-		t.Log(err)
-		t.Fatal("failed to create caprica.root")
-	}
 
 	c := addComputerTest(t)
 	c = modifyComputerTest(t, c)

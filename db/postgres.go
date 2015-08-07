@@ -253,7 +253,7 @@ func CreateDesign(name string, user string) error {
 	}
 
 	//every design starts life with a 'root' system
-	_, err = CreateSystem(name, "root")
+	_, err = CreateSystem("root", name, user)
 	if err != nil {
 		return createFailure(err)
 	}
@@ -315,9 +315,12 @@ func ReadUserDesigns(user string) ([]string, error) {
 
 }
 
-func ReadDesignKey(name string) (int, error) {
+func ReadDesignKey(name, owner string) (int, error) {
 
-	q := fmt.Sprintf("SELECT id FROM designs WHERE name = '%s'", name)
+	q := fmt.Sprintf(
+		"SELECT designs.id FROM designs "+
+			"JOIN users ON users.id = designs.owner "+
+			"WHERE designs.name = '%s' AND users.name = '%s'", name, owner)
 	key, err := getKey(q)
 	if err != nil {
 		return -1, selectFailure(err)
@@ -326,9 +329,15 @@ func ReadDesignKey(name string) (int, error) {
 
 }
 
-func DeleteDesign(name string) error {
+func DeleteDesign(name, owner string) error {
 
-	q := fmt.Sprintf("DELETE FROM designs WHERE name = '%s'", name)
+	q := fmt.Sprintf(
+		"DELETE FROM designs "+
+			"USING users "+
+			"WHERE users.id = designs.owner "+
+			"AND designs.name = '%s' "+
+			"AND users.name = '%s'", name, owner)
+
 	err := runC(q)
 	if err != nil {
 		return deleteFailure(err)
@@ -337,16 +346,9 @@ func DeleteDesign(name string) error {
 	return nil
 }
 
-func ReadDesign(name string) (*addie.Design, error) {
+func ReadDesign(name, owner string) (*addie.Design, error) {
 
-	/*
-		err := beginTx()
-		if err != nil {
-			return nil, transactBeginFailure(err)
-		}
-	*/
-
-	key, err := ReadDesignKey(name)
+	key, err := ReadDesignKey(name, owner)
 	if err != nil {
 		return nil, readFailure(err)
 	}
@@ -410,21 +412,14 @@ func ReadDesign(name string) (*addie.Design, error) {
 
 	}
 
-	/*
-		endTx()
-		if err != nil {
-			return nil, transactEndFailure(err)
-		}
-	*/
-
 	return &dsg, nil
 }
 
 // Systems --------------------------------------------------------------------
 
-func CreateSystem(design string, name string) (int, error) {
+func CreateSystem(name, design, owner string) (int, error) {
 
-	design_key, err := ReadDesignKey(design)
+	design_key, err := ReadDesignKey(design, owner)
 	if err != nil {
 		return -1, readFailure(err)
 	}
@@ -451,9 +446,9 @@ func CreateSystem(design string, name string) (int, error) {
 
 }
 
-func ReadSysKey(design string, name string) (int, error) {
+func ReadSysKey(name, design, owner string) (int, error) {
 
-	design_key, err := ReadDesignKey(design)
+	design_key, err := ReadDesignKey(design, owner)
 	if err != nil {
 		return -1, readFailure(err)
 	}
@@ -513,9 +508,9 @@ func SysRecycle() error {
 
 // Ids ------------------------------------------------------------------------
 
-func ReadIdKey(id addie.Id) (int, error) {
+func ReadIdKey(id addie.Id, owner string) (int, error) {
 
-	sys_key, err := ReadSysKey(id.Design, id.Sys)
+	sys_key, err := ReadSysKey(id.Sys, id.Design, owner)
 	if err != nil {
 		return -1, readFailure(err)
 	}
@@ -530,8 +525,8 @@ func ReadIdKey(id addie.Id) (int, error) {
 	return id_key, nil
 }
 
-func CreateId(id addie.Id) (int, error) {
-	sys_id, err := ReadSysKey(id.Design, id.Sys)
+func CreateId(id addie.Id, owner string) (int, error) {
+	sys_id, err := ReadSysKey(id.Sys, id.Design, owner)
 	if err != nil {
 		return -1, readFailure(err)
 	}
@@ -590,9 +585,9 @@ func ReadId(id int) (*addie.Id, error) {
 UpdateID updates an id. If the system in the new id does not exist it is created.
 Changing design is not supported through this interface
 */
-func UpdateId(oid addie.Id, id addie.Id) (int, error) {
+func UpdateId(oid addie.Id, id addie.Id, owner string) (int, error) {
 
-	key, err := ReadIdKey(oid)
+	key, err := ReadIdKey(oid, owner)
 	if err != nil {
 		return -1, readFailure(err)
 	}
@@ -606,9 +601,9 @@ func UpdateId(oid addie.Id, id addie.Id) (int, error) {
 	}
 
 	if oid.Sys != id.Sys {
-		sys_key, err := ReadSysKey(id.Design, id.Sys)
+		sys_key, err := ReadSysKey(id.Sys, id.Design, owner)
 		if err != nil {
-			sys_key, err = CreateSystem(id.Design, id.Sys)
+			sys_key, err = CreateSystem(id.Sys, id.Design, owner)
 			if err != nil {
 				return key, createFailure(err)
 			}
@@ -780,10 +775,10 @@ func ReadHostInterfaces(host_id int) (*map[string]addie.Interface, error) {
 
 // Network Hosts ---------------------------------------------------------------------
 
-func CreateNetworkHost(h addie.NetHost) (int, error) {
+func CreateNetworkHost(h addie.NetHost, owner string) (int, error) {
 
 	//id insert
-	id_key, err := CreateId(h.Id)
+	id_key, err := CreateId(h.Id, owner)
 	if err != nil {
 		return -1, createFailure(err)
 	}
@@ -811,9 +806,10 @@ func CreateNetworkHostByKey(id_key int) error {
 
 }
 
-func UpdateNetworkHost(oid addie.Id, old addie.NetHost, h addie.NetHost) (int, error) {
+func UpdateNetworkHost(oid addie.Id, old addie.NetHost, h addie.NetHost, owner string) (
+	int, error) {
 
-	key, err := UpdateId(oid, h.Id)
+	key, err := UpdateId(oid, h.Id, owner)
 	if err != nil {
 		return -1, updateFailure(err)
 	}
@@ -969,10 +965,10 @@ func UpdatePacketConductor(key int, p addie.PacketConductor) (int, error) {
 
 // Computers -------------------------------------------------------------------------
 
-func CreateComputer(c addie.Computer) error {
+func CreateComputer(c addie.Computer, owner string) error {
 
 	//nethost insert
-	host_key, err := CreateNetworkHost(c.NetHost)
+	host_key, err := CreateNetworkHost(c.NetHost, owner)
 	if err != nil {
 		return createFailure(err)
 	}
@@ -1003,9 +999,10 @@ func CreateComputer(c addie.Computer) error {
 	return nil
 }
 
-func UpdateComputer(oid addie.Id, old addie.Computer, c addie.Computer) (int, error) {
+func UpdateComputer(oid addie.Id, old addie.Computer, c addie.Computer, owner string) (
+	int, error) {
 
-	key, err := UpdateNetworkHost(oid, old.NetHost, c.NetHost)
+	key, err := UpdateNetworkHost(oid, old.NetHost, c.NetHost, owner)
 	if err != nil {
 		return -1, updateFailure(err)
 	}
@@ -1091,9 +1088,9 @@ func ReadComputerByKey(id_key int) (*addie.Computer, error) {
 
 }
 
-func ReadComputer(id addie.Id) (*addie.Computer, error) {
+func ReadComputer(id addie.Id, owner string) (*addie.Computer, error) {
 
-	id_key, err := ReadIdKey(id)
+	id_key, err := ReadIdKey(id, owner)
 	if err != nil {
 		return nil, readFailure(err)
 	}
@@ -1104,10 +1101,10 @@ func ReadComputer(id addie.Id) (*addie.Computer, error) {
 
 // Routers ---------------------------------------------------------------------------
 
-func CreateRouter(r addie.Router) error {
+func CreateRouter(r addie.Router, owner string) error {
 
 	//create nethost
-	host_key, err := CreateNetworkHost(r.NetHost)
+	host_key, err := CreateNetworkHost(r.NetHost, owner)
 	if err != nil {
 		return createFailure(err)
 	}
@@ -1189,9 +1186,9 @@ func ReadRouterByKey(key int) (*addie.Router, error) {
 
 }
 
-func ReadRouter(id addie.Id) (*addie.Router, error) {
+func ReadRouter(id addie.Id, owner string) (*addie.Router, error) {
 
-	key, err := ReadIdKey(id)
+	key, err := ReadIdKey(id, owner)
 	if err != nil {
 		return nil, readFailure(err)
 	}
@@ -1199,9 +1196,10 @@ func ReadRouter(id addie.Id) (*addie.Router, error) {
 	return ReadRouterByKey(key)
 }
 
-func UpdateRouter(oid addie.Id, old addie.Router, r addie.Router) (int, error) {
+func UpdateRouter(oid addie.Id, old addie.Router, r addie.Router, owner string) (
+	int, error) {
 
-	key, err := UpdateNetworkHost(oid, old.NetHost, r.NetHost)
+	key, err := UpdateNetworkHost(oid, old.NetHost, r.NetHost, owner)
 	if err != nil {
 		return -1, updateFailure(err)
 	}
@@ -1272,10 +1270,10 @@ func ReadSystemRouters(key int) ([]addie.Router, error) {
 
 // Switches --------------------------------------------------------------------------
 
-func CreateSwitch(s addie.Switch) error {
+func CreateSwitch(s addie.Switch, owner string) error {
 
 	//id insert
-	id_key, err := CreateNetworkHost(s.NetHost)
+	id_key, err := CreateNetworkHost(s.NetHost, owner)
 	if err != nil {
 		return createFailure(err)
 	}
@@ -1357,9 +1355,9 @@ func ReadSwitchByKey(key int) (*addie.Switch, error) {
 
 }
 
-func ReadSwitch(id addie.Id) (*addie.Switch, error) {
+func ReadSwitch(id addie.Id, owner string) (*addie.Switch, error) {
 
-	key, err := ReadIdKey(id)
+	key, err := ReadIdKey(id, owner)
 	if err != nil {
 		return nil, readFailure(err)
 	}
@@ -1367,9 +1365,10 @@ func ReadSwitch(id addie.Id) (*addie.Switch, error) {
 	return ReadSwitchByKey(key)
 }
 
-func UpdateSwitch(oid addie.Id, old addie.Switch, s addie.Switch) (int, error) {
+func UpdateSwitch(oid addie.Id, old addie.Switch, s addie.Switch, owner string) (
+	int, error) {
 
-	key, err := UpdateNetworkHost(oid, old.NetHost, s.NetHost)
+	key, err := UpdateNetworkHost(oid, old.NetHost, s.NetHost, owner)
 	if err != nil {
 		return -1, updateFailure(err)
 	}
@@ -1441,10 +1440,10 @@ func ReadSystemSwitches(key int) ([]addie.Switch, error) {
 
 // Links -----------------------------------------------------------------------------
 
-func CreateLink(l addie.Link) error {
+func CreateLink(l addie.Link, owner string) error {
 
 	//id insert
-	id_key, err := CreateId(l.Id)
+	id_key, err := CreateId(l.Id, owner)
 	if err != nil {
 		return createFailure(err)
 	}
@@ -1456,7 +1455,7 @@ func CreateLink(l addie.Link) error {
 	}
 
 	//endpoint0
-	ep0_key, err := ReadIdKey(l.Endpoints[0].Id)
+	ep0_key, err := ReadIdKey(l.Endpoints[0].Id, owner)
 	if err != nil {
 		return readFailure(err)
 	}
@@ -1466,7 +1465,7 @@ func CreateLink(l addie.Link) error {
 	}
 
 	//endpoint1
-	ep1_key, err := ReadIdKey(l.Endpoints[1].Id)
+	ep1_key, err := ReadIdKey(l.Endpoints[1].Id, owner)
 	if err != nil {
 		return readFailure(err)
 	}
@@ -1557,9 +1556,9 @@ func ReadLinkByKey(key int) (*addie.Link, error) {
 
 }
 
-func ReadLink(id addie.Id) (*addie.Link, error) {
+func ReadLink(id addie.Id, owner string) (*addie.Link, error) {
 
-	key, err := ReadIdKey(id)
+	key, err := ReadIdKey(id, owner)
 	if err != nil {
 		return nil, readFailure(err)
 	}
@@ -1567,9 +1566,9 @@ func ReadLink(id addie.Id) (*addie.Link, error) {
 	return ReadLinkByKey(key)
 }
 
-func UpdateLink(oid addie.Id, l addie.Link) (int, error) {
+func UpdateLink(oid addie.Id, l addie.Link, owner string) (int, error) {
 
-	key, err := UpdateId(oid, l.Id)
+	key, err := UpdateId(oid, l.Id, owner)
 	if err != nil {
 		return -1, updateFailure(err)
 	}
@@ -1598,11 +1597,11 @@ func UpdateLink(oid addie.Id, l addie.Link) (int, error) {
 	}
 
 	//endpoints
-	e0, err := ReadIdKey(l.Endpoints[0].Id)
+	e0, err := ReadIdKey(l.Endpoints[0].Id, owner)
 	if err != nil {
 		return key, readFailure(err)
 	}
-	e1, err := ReadIdKey(l.Endpoints[1].Id)
+	e1, err := ReadIdKey(l.Endpoints[1].Id, owner)
 	if err != nil {
 		return key, readFailure(err)
 	}
