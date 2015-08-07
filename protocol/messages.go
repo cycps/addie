@@ -26,6 +26,10 @@ type NewXP struct {
 	Name string
 }
 
+type UserDesigns struct {
+	Designs []string `json:"designs"`
+}
+
 func Unpack(r *http.Request, x interface{}) error {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(r.Body)

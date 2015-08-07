@@ -289,6 +289,32 @@ func ReadDesigns() (map[string]struct{}, error) {
 
 }
 
+func ReadUserDesigns(user string) ([]string, error) {
+
+	q := fmt.Sprintf("SELECT designs.name FROM designs "+
+		"INNER JOIN users on designs.owner = users.id "+
+		"WHERE users.name = '%s'", user)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	var name string
+	var ds []string
+	for rows.Next() {
+		err = rows.Scan(&name)
+		if err != nil {
+			return nil, scanFailure(err)
+		}
+		ds = append(ds, name)
+	}
+
+	return ds, nil
+
+}
+
 func ReadDesignKey(name string) (int, error) {
 
 	q := fmt.Sprintf("SELECT id FROM designs WHERE name = '%s'", name)

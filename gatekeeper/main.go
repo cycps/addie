@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/cycps/addie/db"
 	"github.com/cycps/addie/protocol"
@@ -164,12 +165,43 @@ func newXP(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.WriteHeader(200)
 }
 
+func myDesigns(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	user, err := getUser(r)
+	if err != nil {
+		w.WriteHeader(401)
+		return
+	}
+
+	ds, err := db.ReadUserDesigns(user)
+	if err != nil {
+		log.Printf("[myDesigns] error reading user projects for '%s'", user)
+		w.WriteHeader(500)
+		return
+	}
+
+	var uds protocol.UserDesigns
+	uds.Designs = ds
+
+	js, err := json.Marshal(uds)
+	if err != nil {
+		log.Printf("[myDesigns] error marshalling json")
+		w.WriteHeader(500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
+
+}
+
 func main() {
 
 	router := httprouter.New()
 	router.POST("/login", onLogin)
 	router.GET("/thisUser", thisUser)
 	router.POST("/newXP", newXP)
+	router.GET("/myDesigns", myDesigns)
 
 	log.Printf("listening on http://::0:8081")
 	log.Fatal(
