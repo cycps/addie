@@ -15,15 +15,17 @@ import (
 
 var design addie.Design
 var cypdir = os.ExpandEnv("$HOME/.cypress")
+var user = ""
 
 func main() {
 
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "usage: go-addie <design id>\n")
+	if len(os.Args) != 3 {
+		fmt.Fprintf(os.Stderr, "usage: go-addie <user id> <design id>\n")
 		os.Exit(1)
 	}
 
-	loadDesign(os.Args[1])
+	loadDesign(os.Args[2])
+	user = os.Args[1]
 	listen()
 }
 
@@ -40,16 +42,16 @@ func dbCreate(e addie.Identify) {
 	switch t := e.(type) {
 	case addie.Computer:
 		c := e.(addie.Computer)
-		err = db.CreateComputer(c)
+		err = db.CreateComputer(c, user)
 	case addie.Switch:
 		s := e.(addie.Switch)
-		err = db.CreateSwitch(s)
+		err = db.CreateSwitch(s, user)
 	case addie.Router:
 		r := e.(addie.Router)
-		err = db.CreateRouter(r)
+		err = db.CreateRouter(r, user)
 	case addie.Link:
 		l := e.(addie.Link)
-		err = db.CreateLink(l)
+		err = db.CreateLink(l, user)
 		/*
 			case addie.Model:
 				m := e.(addie.Model)
@@ -82,16 +84,16 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 	switch t := e.(type) {
 	case addie.Computer:
 		c := e.(addie.Computer)
-		_, err = db.UpdateComputer(oid, old.(addie.Computer), c)
+		_, err = db.UpdateComputer(oid, old.(addie.Computer), c, user)
 	case addie.Switch:
 		s := e.(addie.Switch)
-		_, err = db.UpdateSwitch(oid, old.(addie.Switch), s)
+		_, err = db.UpdateSwitch(oid, old.(addie.Switch), s, user)
 	case addie.Router:
 		r := e.(addie.Router)
-		_, err = db.UpdateRouter(oid, old.(addie.Router), r)
+		_, err = db.UpdateRouter(oid, old.(addie.Router), r, user)
 	case addie.Link:
 		l := e.(addie.Link)
-		_, err = db.UpdateLink(oid, l)
+		_, err = db.UpdateLink(oid, l, user)
 		/*
 			case addie.Model:
 				m := e.(addie.Model)
@@ -273,7 +275,7 @@ func typeWrap(obj interface{}) TypeWrapper {
 
 func doRead() error {
 
-	dsg, err := db.ReadDesign(design.Name)
+	dsg, err := db.ReadDesign(design.Name, user)
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("Failed to read design")
