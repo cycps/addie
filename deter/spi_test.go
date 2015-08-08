@@ -7,7 +7,7 @@ import (
 
 func TestSPI(t *testing.T) {
 
-	dsg, err := db.ReadDesign("Hi")
+	dsg, err := db.ReadDesign("phobos", "murphy")
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("Failed to read design")
