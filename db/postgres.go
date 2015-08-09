@@ -520,6 +520,7 @@ func ReadIdKey(id addie.Id, owner string) (int, error) {
 
 	id_key, err := getKey(q)
 	if err != nil {
+		log.Println(id)
 		return -1, selectFailure(err)
 	}
 	return id_key, nil

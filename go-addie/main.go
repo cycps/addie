@@ -249,7 +249,9 @@ func onDelete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 func onRead(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
+	//log.Println(design)
 	json, err := modelJson()
+	//log.Println(string(json))
 
 	if err != nil {
 		log.Println("modelJson failed")
