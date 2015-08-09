@@ -1,6 +1,8 @@
 package deter
 
 import (
+	"encoding/xml"
+	"fmt"
 	"github.com/cycps/addie"
 	"github.com/deter-project/go-spi/spi"
 	"log"
@@ -189,4 +191,33 @@ func designTopDL(dsg *addie.Design) spi.Experiment {
 	}
 
 	return xp
+}
+
+func CreateDeterXP(user string, dsg *addie.Design) error {
+
+	xp := designTopDL(dsg)
+
+	//create a session with the DeterLab SPI
+	err := spi.Login("deterboss", "muffins")
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("unable to login as deterboss")
+	}
+
+	topdl, err := xml.MarshalIndent(xp, "  ", "  ")
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("failed to serialize topology to topdl xml")
+	}
+
+	createResponse, err := spi.CreateExperiment(
+		user+":"+dsg.Name, "deterboss", string(topdl))
+
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("failed to create experiment")
+	}
+	log.Printf("createResponse: %v", createResponse)
+
+	return nil
 }
