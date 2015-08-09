@@ -101,7 +101,7 @@ func updateEndpoint(ssName string, ifr addie.NetIfRef, dsg *addie.Design,
 func linkSubstrate(link *addie.Link, dsg *addie.Design,
 	xp *spi.Experiment,
 	cMap map[addie.Id]*spi.Computer,
-	sMap map[addie.Id]*spi.Substrate) spi.Substrate {
+	sMap map[addie.Id]*spi.Substrate) *spi.Substrate {
 
 	var ss spi.Substrate
 	ss.Name = link.Name
@@ -112,13 +112,13 @@ func linkSubstrate(link *addie.Link, dsg *addie.Design,
 	if !ok {
 		log.Printf("link '%s' references element '%v' but no such element exists",
 			link.Name, link.Endpoints[0].Id)
-		return ss
+		return nil
 	}
 	b, ok := dsg.Elements[link.Endpoints[1].Id]
 	if !ok {
 		log.Printf("link '%s' references element '%v' but no such element exists",
 			link.Name, link.Endpoints[0].Id)
-		return ss
+		return nil
 	}
 
 	ta := reflect.TypeOf(a).Name()
@@ -130,15 +130,18 @@ func linkSubstrate(link *addie.Link, dsg *addie.Design,
 	if taIsHost && tbIsHost {
 		updateEndpoint(link.Name, link.Endpoints[0], dsg, xp, cMap)
 		updateEndpoint(link.Name, link.Endpoints[1], dsg, xp, cMap)
+		return &ss
 	} else if taIsHost && !tbIsHost {
 		sw := b.(addie.Switch)
 		updateEndpoint(sw.Name, link.Endpoints[0], dsg, xp, cMap)
+		return nil
 	} else if !taIsHost && tbIsHost {
 		sw := a.(addie.Switch)
 		updateEndpoint(sw.Name, link.Endpoints[1], dsg, xp, cMap)
+		return nil
 	}
 
-	return ss
+	return nil
 }
 
 func designTopDL(dsg *addie.Design) spi.Experiment {
@@ -179,7 +182,10 @@ func designTopDL(dsg *addie.Design) spi.Experiment {
 	}
 
 	for _, l := range links {
-		xp.Substrates = append(xp.Substrates, linkSubstrate(l, dsg, &xp, cMap, sMap))
+		_l := linkSubstrate(l, dsg, &xp, cMap, sMap)
+		if _l != nil {
+			xp.Substrates = append(xp.Substrates, *_l)
+		}
 	}
 
 	return xp
