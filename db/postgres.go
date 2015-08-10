@@ -1898,3 +1898,125 @@ func ReadSax(id addie.Id, owner string) (*addie.Sax, error) {
 }
 
 // Plinks ----------------------------------------------------------------------------
+
+func CreatePlink(p addie.Plink, owner string) error {
+
+	key, err := CreateId(p.Id, owner)
+	if err != nil {
+		return createFailure(err)
+	}
+
+	epa_key, err := ReadIdKey(p.Endpoints[0], owner)
+	if err != nil {
+		return readFailure(err)
+	}
+
+	epb_key, err := ReadIdKey(p.Endpoints[1], owner)
+	if err != nil {
+		return readFailure(err)
+	}
+
+	q := fmt.Sprintf("INSERT INTO plinks "+
+		"(id, endpoint_a_id, endpoint_b_id, epa_bindings, epb_bindings) "+
+		"VALUES (%d, %d, %d, '%s', '%s')",
+		key, epa_key, epb_key, p.Bindings[0], p.Bindings[1])
+
+	err = runC(q)
+	if err != nil {
+		return insertFailure(err)
+	}
+
+	return nil
+
+}
+
+func ReadPlinkByKey(key int) (*addie.Plink, error) {
+
+	id, err := ReadId(key)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	q := fmt.Sprintf(
+		"SELECT endpoint_a_id, endpoint_b_id, epa_bindings, epb_bindings "+
+			"FROM plinks WHERE id = %d", key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+	if !rows.Next() {
+		return nil, emptyReadFailure()
+	}
+
+	var epa_key, epb_key int
+	var epa_bind, epb_bind string
+	err = rows.Scan(&epa_key, &epb_key, &epa_bind, &epb_bind)
+	if err != nil {
+		return nil, scanFailure(err)
+	}
+	rows.Close()
+
+	epa, err := ReadId(epa_key)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	epb, err := ReadId(epb_key)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	plink := addie.Plink{}
+	plink.Id = *id
+	plink.Endpoints[0] = *epa
+	plink.Endpoints[1] = *epb
+	plink.Bindings[0] = epa_bind
+	plink.Bindings[1] = epb_bind
+
+	return &plink, nil
+
+}
+
+func ReadPlink(id addie.Id, p addie.Plink, owner string) (*addie.Plink, error) {
+
+	key, err := ReadIdKey(id, owner)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	return ReadPlinkByKey(key)
+
+}
+
+func UpdatePlink(oid addie.Id, p addie.Plink, owner string) (int, error) {
+
+	key, err := UpdateId(oid, p.Id, owner)
+	if err != nil {
+		return -1, updateFailure(err)
+	}
+
+	ep0, err := ReadIdKey(p.Endpoints[0], owner)
+	if err != nil {
+		return key, readFailure(err)
+	}
+
+	ep1, err := ReadIdKey(p.Endpoints[1], owner)
+	if err != nil {
+		return key, readFailure(err)
+	}
+
+	q := fmt.Sprintf("UPDATE plinks SET "+
+		"endpoint_a_id = %d, endpoint_b_id = %d, "+
+		"epa_bindings = '%s', epb_bindings = '%s' "+
+		"WHERE id = %d", ep0, ep1, p.Bindings[0], p.Bindings[1], key)
+
+	err = runC(q)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	return key, nil
+
+}
