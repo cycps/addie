@@ -134,28 +134,32 @@ func (l *Link) Equals(x *Link) bool {
 type Model struct {
 	Id
 	Position  Position `json:"position"`
-	Equations []string `json:"equations"`
+	Params    string   `json:"params"`
+	Equations string   `json:"equations"`
 }
 
 func (m Model) Identify() Id { return m.Id }
 
-type VarRef struct {
-	Id
-	Variable string
-}
+type Binding [2]string
 
-type Equality struct {
+type Plink struct {
 	Id
-	lhs VarRef `json:"lhs"`
-	rhs VarRef `json:"rhs"`
+	Endpoints [2]Id `json:"endpoints"`
+	//Bindings  []Binding `json:"bindings"` //derive this after we get the bits
+	Bindings string `json:"bindings"`
 }
 
 //Cyber-Physical---------------------------------------------------------------
 
+type Target struct {
+	Id
+	Value string `json:"value"`
+}
+
 type Sensor struct {
 	Id
 	Position Position `json:"position"`
-	Target   VarRef   `json:"target"`
+	Target   Target   `json:"target"`
 	Rate     uint     `json:"rate"`
 }
 
@@ -165,7 +169,7 @@ type Bound struct{ Min, Max float64 }
 type Actuator struct {
 	Id
 	Position     Position
-	Target       VarRef `json:"target"`
+	Target       Target `json:"target"`
 	StaticLimit  Bound  `json:"static_limit"`
 	DynamicLimit Bound  `json:"dynamic_limit"`
 }

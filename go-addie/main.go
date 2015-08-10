@@ -52,9 +52,10 @@ func dbCreate(e addie.Identify) {
 	case addie.Link:
 		l := e.(addie.Link)
 		err = db.CreateLink(l, user)
+	case addie.Model:
+		_ = e.(addie.Model)
+		//db.CreateModel(m, user)
 		/*
-			case addie.Model:
-				m := e.(addie.Model)
 			case addie.Sensor:
 				s := e.(addie.Sensor)
 			case addie.Actuator:
@@ -94,9 +95,10 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 	case addie.Link:
 		l := e.(addie.Link)
 		_, err = db.UpdateLink(oid, l, user)
+	case addie.Model:
+		_ = e.(addie.Model)
+		//_, err = db.UpdateLink(oid, m, user)
 		/*
-			case addie.Model:
-				m := e.(addie.Model)
 			case addie.Sensor:
 				s := e.(addie.Sensor)
 			case addie.Actuator:
@@ -205,6 +207,13 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				log.Println("unable to unmarshal link")
 			}
 			place(u.OID, l)
+		case "Plink":
+			var p addie.Plink
+			err := json.Unmarshal(u.Element, &p)
+			if err != nil {
+				log.Println("unable to unmarshal plink")
+			}
+			//place(u.OID, p) not quite
 		default:
 			log.Println("unkown element type: ", u.Type)
 		}
