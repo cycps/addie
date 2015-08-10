@@ -1668,25 +1668,25 @@ func ReadSystemLinks(key int) ([]addie.Link, error) {
 
 func CreateModel(m addie.Model, owner string) (int, error) {
 
-	id_key, err := CreateId(m.Id, owner)
+	key, err := CreateId(m.Id, owner)
 	if err != nil {
 		return -1, createFailure(err)
 	}
 
 	pos_key, err := CreatePosition(m.Position)
 	if err != nil {
-		return id_key, createFailure(err)
+		return key, createFailure(err)
 	}
 
 	q := fmt.Sprintf("INSERT INTO computers (id, position_id, params, equations) "+
-		"values (%d, %d, '%s', '%s')", id_key, pos_key, m.Params, m.Equations)
+		"values (%d, %d, '%s', '%s')", key, pos_key, m.Params, m.Equations)
 
 	err = runC(q)
 	if err != nil {
-		return id_key, insertFailure(err)
+		return key, insertFailure(err)
 	}
 
-	return id_key, nil
+	return key, nil
 
 }
 
@@ -1783,5 +1783,118 @@ func ReadModel(id addie.Id, owner string) (*addie.Model, error) {
 }
 
 // Saxs ------------------------------------------------------------------------------
+
+func CreateSax(s addie.Sax, owner string) (int, error) {
+
+	key, err := CreateId(s.Id, owner)
+	if err != nil {
+		return -1, createFailure(err)
+	}
+
+	pos_key, err := CreatePosition(s.Position)
+	if err != nil {
+		return key, createFailure(err)
+	}
+
+	q := fmt.Sprintf("INSERT INTO saxs (id, position_id, sense, actuate) "+
+		"values (%d, %d, '%s', '%s')", key, pos_key, s.Sense, s.Actuate)
+
+	err = runC(q)
+	if err != nil {
+		return key, insertFailure(err)
+	}
+
+	return key, nil
+
+}
+
+func UpdateSax(oid addie.Id, old, s addie.Sax, owner string) (int, error) {
+
+	key, err := UpdateId(oid, s.Id, owner)
+	if err != nil {
+		return -1, updateFailure(err)
+	}
+
+	q := fmt.Sprintf("SELECT position_id FROM saxs WHERE id = %d", key)
+	rows, err := runQ(q)
+	if err != nil {
+		return key, selectFailure(err)
+	}
+	if !rows.Next() {
+		return key, emptyReadFailure()
+	}
+	var pos_key, pkt_key int
+	err = rows.Scan(&pos_key, &pkt_key)
+	if err != nil {
+		return key, scanFailure(err)
+	}
+
+	_, err = UpdatePosition(pos_key, s.Position)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	q = fmt.Sprintf("UPDATE saxs SET actuate = '%s', sense = '%s' WHERE id %d",
+		s.Actuate, s.Sense, key)
+
+	err = runC(q)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	return key, nil
+
+}
+
+func ReadSaxByKey(key int) (*addie.Sax, error) {
+
+	id, err := ReadId(key)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	q := fmt.Sprintf("SELECT sense, actuate, position_id FROM saxs WHERE id = %d",
+		key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	if !rows.Next() {
+		return nil, emptyReadFailure()
+	}
+
+	var sense, actuate string
+	var pos_key int
+	err = rows.Scan(&sense, &actuate, &pos_key)
+	rows.Close()
+
+	pos, err := ReadPosition(pos_key)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	s := addie.Sax{}
+	s.Id = *id
+	s.Position = *pos
+	s.Sense = sense
+	s.Actuate = actuate
+
+	return &s, nil
+
+}
+
+func ReadSax(id addie.Id, owner string) (*addie.Sax, error) {
+
+	key, err := ReadIdKey(id, owner)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	return ReadSaxByKey(key)
+
+}
 
 // Plinks ----------------------------------------------------------------------------
