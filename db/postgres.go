@@ -1663,3 +1663,125 @@ func ReadSystemLinks(key int) ([]addie.Link, error) {
 	return result, nil
 
 }
+
+// Models ----------------------------------------------------------------------------
+
+func CreateModel(m addie.Model, owner string) (int, error) {
+
+	id_key, err := CreateId(m.Id, owner)
+	if err != nil {
+		return -1, createFailure(err)
+	}
+
+	pos_key, err := CreatePosition(m.Position)
+	if err != nil {
+		return id_key, createFailure(err)
+	}
+
+	q := fmt.Sprintf("INSERT INTO computers (id, position_id, params, equations) "+
+		"values (%d, %d, '%s', '%s')", id_key, pos_key, m.Params, m.Equations)
+
+	err = runC(q)
+	if err != nil {
+		return id_key, insertFailure(err)
+	}
+
+	return id_key, nil
+
+}
+
+func UpdateModel(oid addie.Id, old, m addie.Model, owner string) (int, error) {
+
+	key, err := UpdateId(oid, m.Id, owner)
+	if err != nil {
+		return -1, updateFailure(err)
+	}
+
+	q := fmt.Sprintf("SELECT position_id FROM routers WHERE id = %d", key)
+	rows, err := runQ(q)
+	defer safeClose(rows)
+	if err != nil {
+		return key, selectFailure(err)
+	}
+	if !rows.Next() {
+		return key, emptyReadFailure()
+	}
+	var pos_key, pkt_key int
+	err = rows.Scan(&pos_key, &pkt_key)
+	if err != nil {
+		return key, scanFailure(err)
+	}
+
+	_, err = UpdatePosition(pos_key, m.Position)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	q = fmt.Sprintf("UPDATE models SET params = '%s', equations = '%s' WHERE id = %d",
+		m.Params, m.Equations, key)
+
+	err = runC(q)
+	if err != nil {
+		return key, updateFailure(err)
+	}
+
+	return key, nil
+
+}
+
+func ReadModelByKey(key int) (*addie.Model, error) {
+
+	id, err := ReadId(key)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	q := fmt.Sprintf("SELECT params, equations, position_id FROM models WHERE id = %d",
+		key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	if !rows.Next() {
+		return nil, emptyReadFailure()
+	}
+
+	var params, eqtns string
+	var pos_key int
+	err = rows.Scan(&params, &eqtns, &pos_key)
+	if err != nil {
+		return nil, scanFailure(err)
+	}
+	rows.Close()
+
+	pos, err := ReadPosition(pos_key)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	m := addie.Model{}
+	m.Id = *id
+	m.Position = *pos
+	m.Params = params
+	m.Equations = eqtns
+
+	return &m, nil
+}
+
+func ReadModel(id addie.Id, owner string) (*addie.Model, error) {
+
+	key, err := ReadIdKey(id, owner)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	return ReadModelByKey(key)
+
+}
+
+// Saxs ------------------------------------------------------------------------------
+
+// Plinks ----------------------------------------------------------------------------
