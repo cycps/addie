@@ -149,6 +149,8 @@ type Plink struct {
 	Bindings string `json:"bindings"`
 }
 
+func (p Plink) Identify() Id { return p.Id }
+
 //Cyber-Physical---------------------------------------------------------------
 
 type Target struct {

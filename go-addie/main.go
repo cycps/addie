@@ -54,16 +54,13 @@ func dbCreate(e addie.Identify) {
 		err = db.CreateLink(l, user)
 	case addie.Model:
 		_ = e.(addie.Model)
-		//db.CreateModel(m, user)
+		//db.CreateModel(m, user) TODO
 	case addie.Sax:
 		_ = e.(addie.Sax)
-		//db.CreateSax(s, user) not yet
-		/*
-			case addie.Sensor:
-				s := e.(addie.Sensor)
-			case addie.Actuator:
-				a := e.(addie.Actuator)
-		*/
+		//db.CreateSax(s, user) TODO
+	case addie.Plink:
+		_ = e.(addie.Plink)
+		//db.CreatePlink(s, user) TODO
 	default:
 		log.Printf("[dbCreate] unkown or unsupported element type: %T \n", t)
 	}
@@ -100,17 +97,13 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 		_, err = db.UpdateLink(oid, l, user)
 	case addie.Model:
 		_ = e.(addie.Model)
-		//_, err = db.UpdateModel(oid, m, user) not yet
+		//_, err = db.UpdateModel(oid, m, user) TODO
 	case addie.Sax:
 		_ = e.(addie.Sax)
-		//_, err = db.UpdateSax(oid, s, user) not yet
-
-		/*
-			case addie.Sensor:
-				s := e.(addie.Sensor)
-			case addie.Actuator:
-				a := e.(addie.Actuator)
-		*/
+		//_, err = db.UpdateSax(oid, s, user) TODO
+	case addie.Plink:
+		_ = e.(addie.Plink)
+		//_, err = db.updatePlink(s, user) TODO
 	default:
 		log.Printf("[dbUpdate] unkown or unsupported element type: %T \n", t)
 	}
@@ -144,14 +137,14 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		_, ok := design.Elements[oid]
 		if !ok {
 			switch e.(type) {
-			case addie.Link:
+			case addie.Link, addie.Plink:
 				new_links = append(new_links, e)
 			default:
 				new_nodes = append(new_nodes, e)
 			}
 		} else {
 			switch e.(type) {
-			case addie.Link:
+			case addie.Link, addie.Plink:
 				changed_links = append(changed_links, e)
 				changed_link_oids = append(changed_link_oids, oid)
 			default:
@@ -220,7 +213,7 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			if err != nil {
 				log.Println("unable to unmarshal plink")
 			}
-			//place(u.OID, p) not quite
+			place(u.OID, p)
 		case "Sax":
 			var s addie.Sax
 			err := json.Unmarshal(u.Element, &s)
