@@ -146,7 +146,7 @@ type Plink struct {
 	Id
 	Endpoints [2]Id `json:"endpoints"`
 	//Bindings  []Binding `json:"bindings"` //derive this after we get the bits
-	Bindings string `json:"bindings"`
+	Bindings [2]string `json:"bindings"`
 }
 
 func (p Plink) Identify() Id { return p.Id }
