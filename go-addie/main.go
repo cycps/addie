@@ -55,6 +55,9 @@ func dbCreate(e addie.Identify) {
 	case addie.Model:
 		_ = e.(addie.Model)
 		//db.CreateModel(m, user)
+	case addie.Sax:
+		_ = e.(addie.Sax)
+		//db.CreateSax(s, user) not yet
 		/*
 			case addie.Sensor:
 				s := e.(addie.Sensor)
@@ -97,7 +100,11 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 		_, err = db.UpdateLink(oid, l, user)
 	case addie.Model:
 		_ = e.(addie.Model)
-		//_, err = db.UpdateLink(oid, m, user)
+		//_, err = db.UpdateModel(oid, m, user) not yet
+	case addie.Sax:
+		_ = e.(addie.Sax)
+		//_, err = db.UpdateSax(oid, s, user) not yet
+
 		/*
 			case addie.Sensor:
 				s := e.(addie.Sensor)
@@ -214,6 +221,13 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				log.Println("unable to unmarshal plink")
 			}
 			//place(u.OID, p) not quite
+		case "Sax":
+			var s addie.Sax
+			err := json.Unmarshal(u.Element, &s)
+			if err != nil {
+				log.Println("unable to marshal sax")
+			}
+			place(u.OID, s)
 		default:
 			log.Println("unkown element type: ", u.Type)
 		}

@@ -176,6 +176,15 @@ type Actuator struct {
 
 func (a Actuator) Identify() Id { return a.Id }
 
+type Sax struct {
+	Id
+	Position Position `json:"position"`
+	Sense    string   `json:"sense"`
+	Actuate  string   `json:"actuate"`
+}
+
+func (s Sax) Identify() Id { return s.Id }
+
 type Design struct {
 	Name     string          `json:"name"`
 	Elements map[Id]Identify `json:"elements"`
