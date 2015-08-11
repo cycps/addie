@@ -132,13 +132,18 @@ func (l *Link) Equals(x *Link) bool {
 //Physical---------------------------------------------------------------------
 
 type Model struct {
-	Id
-	Position  Position `json:"position"`
-	Params    string   `json:"params"`
-	Equations string   `json:"equations"`
+	Name      string `json:"name"`
+	Equations string `json:"equations"`
 }
 
-func (m Model) Identify() Id { return m.Id }
+type Phyo struct {
+	Id
+	Position Position `json:"position"`
+	Model    string   `json:"model"`
+	Params   string   `json:"params"`
+}
+
+func (m Phyo) Identify() Id { return m.Id }
 
 type Binding [2]string
 

@@ -414,13 +414,13 @@ func ReadDesign(name, owner string) (*addie.Design, error) {
 			dsg.Elements[l.Id] = l
 		}
 
-		//models
-		models, err := ReadSystemModels(sys_key)
+		//phyos
+		phyos, err := ReadSystemPhyos(sys_key)
 		if err != nil {
 			return nil, readFailure(err)
 		}
-		for _, m := range models {
-			dsg.Elements[m.Id] = m
+		for _, p := range phyos {
+			dsg.Elements[p.Id] = p
 		}
 
 		//saxs
@@ -1695,23 +1695,123 @@ func ReadSystemLinks(key int) ([]addie.Link, error) {
 
 }
 
-// Models ----------------------------------------------------------------------------
+// Models ---------------------------------------------------------------------------
 
-func CreateModel(m addie.Model, owner string) (int, error) {
+func CreateModel(m addie.Model, owner string) error {
 
-	key, err := CreateId(m.Id, owner)
+	user_key, err := ReadUserKey(owner)
+	if err != nil {
+		return readFailure(err)
+	}
+
+	q := fmt.Sprintf("INSERT INTO models (user_id, name, equations) "+
+		"values (%d, '%s', '%s')", user_key, m.Name, pgMathStr(m.Equations))
+
+	err = runC(q)
+	if err != nil {
+		return insertFailure(err)
+	}
+
+	return nil
+}
+
+func UpdateModel(oldName string, m addie.Model, owner string) error {
+
+	user_key, err := ReadUserKey(owner)
+	if err != nil {
+		return readFailure(err)
+	}
+
+	q := fmt.Sprintf("UPDATE models SET name = '%s', equations = '%s' "+
+		"WHERE user_id = '%s' AND name = '%s'", m.Name, pgMathStr(m.Equations),
+		user_key, oldName)
+
+	err = runC(q)
+	if err != nil {
+		return updateFailure(err)
+	}
+
+	return nil
+
+}
+
+func ReadModelByKey(key int) (*addie.Model, error) {
+
+	q := fmt.Sprintf("SELECT name, equations FROM models WHERE id = %d", key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+	if !rows.Next() {
+		return nil, emptyReadFailure()
+	}
+
+	var name, equations string
+	err = rows.Scan(&name, &equations)
+	if err != nil {
+		return nil, scanFailure(err)
+	}
+	rows.Close()
+
+	var m addie.Model
+	m.Name = name
+	m.Equations = equations
+
+	return &m, nil
+
+}
+
+func ReadModel(name, owner string) (*addie.Model, error) {
+
+	key, err := ReadModelKey(name, owner)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	return ReadModelByKey(key)
+}
+
+func ReadModelKey(name, owner string) (int, error) {
+
+	user_key, err := ReadUserKey(owner)
+	if err != nil {
+		return -1, readFailure(err)
+	}
+
+	q := fmt.Sprintf("SELECT id FROM models WHERE name = '%s' AND user_id = '%s'",
+		name, user_key)
+
+	key, err := getKey(q)
+	if err != nil {
+		return -1, selectFailure(err)
+	}
+
+	return key, nil
+}
+
+// Phyos ----------------------------------------------------------------------------
+
+func CreatePhyo(p addie.Phyo, owner string) (int, error) {
+
+	key, err := CreateId(p.Id, owner)
 	if err != nil {
 		return -1, createFailure(err)
 	}
 
-	pos_key, err := CreatePosition(m.Position)
+	pos_key, err := CreatePosition(p.Position)
 	if err != nil {
 		return key, createFailure(err)
 	}
 
-	q := fmt.Sprintf("INSERT INTO models (id, position_id, params, equations) "+
-		"values (%d, %d, '%s', '%s')", key, pos_key,
-		pgMathStr(m.Params), pgMathStr(m.Equations))
+	mdl_key, err := ReadModelKey(p.Model, owner)
+	if err != nil {
+		return key, readFailure(err)
+	}
+
+	q := fmt.Sprintf("INSERT INTO phyos (id, position_id, mdl_key, params) "+
+		"values (%d, %d, %d, '%s', )", key, pos_key, mdl_key, pgMathStr(p.Params))
 
 	err = runC(q)
 	if err != nil {
@@ -1722,14 +1822,14 @@ func CreateModel(m addie.Model, owner string) (int, error) {
 
 }
 
-func UpdateModel(oid addie.Id, m addie.Model, owner string) (int, error) {
+func UpdatePhyo(oid addie.Id, p addie.Phyo, owner string) (int, error) {
 
-	key, err := UpdateId(oid, m.Id, owner)
+	key, err := UpdateId(oid, p.Id, owner)
 	if err != nil {
 		return -1, updateFailure(err)
 	}
 
-	q := fmt.Sprintf("SELECT position_id FROM models WHERE id = %d", key)
+	q := fmt.Sprintf("SELECT position_id FROM phyos WHERE id = %d", key)
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
@@ -1744,13 +1844,18 @@ func UpdateModel(oid addie.Id, m addie.Model, owner string) (int, error) {
 		return key, scanFailure(err)
 	}
 
-	_, err = UpdatePosition(pos_key, m.Position)
+	_, err = UpdatePosition(pos_key, p.Position)
 	if err != nil {
 		return key, updateFailure(err)
 	}
 
-	q = fmt.Sprintf("UPDATE models SET params = '%s', equations = '%s' WHERE id = %d",
-		pgMathStr(m.Params), pgMathStr(m.Equations), key)
+	mdl_key, err := ReadModelKey(p.Model, owner)
+	if err != nil {
+		return key, readFailure(err)
+	}
+
+	q = fmt.Sprintf("UPDATE phyos SET params = '%s', model_id= %d WHERE id = %d",
+		pgMathStr(p.Params), mdl_key, key)
 
 	err = runC(q)
 	if err != nil {
@@ -1761,14 +1866,14 @@ func UpdateModel(oid addie.Id, m addie.Model, owner string) (int, error) {
 
 }
 
-func ReadModelByKey(key int) (*addie.Model, error) {
+func ReadPhyoByKey(key int) (*addie.Phyo, error) {
 
 	id, err := ReadId(key)
 	if err != nil {
 		return nil, readFailure(err)
 	}
 
-	q := fmt.Sprintf("SELECT params, equations, position_id FROM models WHERE id = %d",
+	q := fmt.Sprintf("SELECT params, model_id, position_id FROM phyos WHERE id = %d",
 		key)
 
 	rows, err := runQ(q)
@@ -1781,9 +1886,9 @@ func ReadModelByKey(key int) (*addie.Model, error) {
 		return nil, emptyReadFailure()
 	}
 
-	var params, eqtns string
-	var pos_key int
-	err = rows.Scan(&params, &eqtns, &pos_key)
+	var params string
+	var pos_key, mdl_key int
+	err = rows.Scan(&params, &mdl_key, &pos_key)
 	if err != nil {
 		return nil, scanFailure(err)
 	}
@@ -1794,33 +1899,38 @@ func ReadModelByKey(key int) (*addie.Model, error) {
 		return nil, readFailure(err)
 	}
 
-	m := addie.Model{}
-	m.Id = *id
-	m.Position = *pos
-	m.Params = params
-	m.Equations = eqtns
+	mdl, err := ReadModelByKey(mdl_key)
+	if err != nil {
+		return nil, readFailure(err)
+	}
 
-	return &m, nil
+	p := addie.Phyo{}
+	p.Id = *id
+	p.Position = *pos
+	p.Params = params
+	p.Model = mdl.Name
+
+	return &p, nil
 }
 
-func ReadModel(id addie.Id, owner string) (*addie.Model, error) {
+func ReadPhyo(id addie.Id, owner string) (*addie.Phyo, error) {
 
 	key, err := ReadIdKey(id, owner)
 	if err != nil {
 		return nil, readFailure(err)
 	}
 
-	return ReadModelByKey(key)
+	return ReadPhyoByKey(key)
 
 }
 
-func ReadSystemModels(key int) ([]addie.Model, error) {
+func ReadSystemPhyos(key int) ([]addie.Phyo, error) {
 
-	var result []addie.Model
+	var result []addie.Phyo
 
 	q := fmt.Sprintf(
-		"SELECT models.id FROM models "+
-			"INNER JOIN ids on models.id = ids.id "+
+		"SELECT phyos.id FROM models "+
+			"INNER JOIN ids on phyos.id = ids.id "+
 			"WHERE ids.sys_id = %d", key)
 
 	rows, err := runQ(q)
@@ -1831,17 +1941,17 @@ func ReadSystemModels(key int) ([]addie.Model, error) {
 	}
 
 	for rows.Next() {
-		var mdl_key int
-		err := rows.Scan(&mdl_key)
+		var pyo_key int
+		err := rows.Scan(&pyo_key)
 		if err != nil {
 			return nil, scanFailure(err)
 		}
 
-		mdl, err := ReadModelByKey(mdl_key)
+		pyo, err := ReadPhyoByKey(pyo_key)
 		if err != nil {
 			return nil, readFailure(err)
 		}
-		result = append(result, *mdl)
+		result = append(result, *pyo)
 	}
 
 	return result, nil

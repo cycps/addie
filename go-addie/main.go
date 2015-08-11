@@ -52,9 +52,9 @@ func dbCreate(e addie.Identify) {
 	case addie.Link:
 		l := e.(addie.Link)
 		err = db.CreateLink(l, user)
-	case addie.Model:
-		m := e.(addie.Model)
-		db.CreateModel(m, user)
+	case addie.Phyo:
+		m := e.(addie.Phyo)
+		db.CreatePhyo(m, user)
 	case addie.Sax:
 		s := e.(addie.Sax)
 		db.CreateSax(s, user)
@@ -95,9 +95,9 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 	case addie.Link:
 		l := e.(addie.Link)
 		_, err = db.UpdateLink(oid, l, user)
-	case addie.Model:
-		m := e.(addie.Model)
-		_, err = db.UpdateModel(oid, m, user)
+	case addie.Phyo:
+		m := e.(addie.Phyo)
+		_, err = db.UpdatePhyo(oid, m, user)
 	case addie.Sax:
 		s := e.(addie.Sax)
 		_, err = db.UpdateSax(oid, old.(addie.Sax), s, user)
@@ -179,8 +179,8 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				log.Println("unable to unmarshal router")
 			}
 			place(u.OID, r)
-		case "Model":
-			var m addie.Model
+		case "Phyo":
+			var m addie.Phyo
 			err := json.Unmarshal(u.Element, &m)
 			if err != nil {
 				log.Println("unable to unmarshal model")

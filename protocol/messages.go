@@ -14,8 +14,14 @@ type ElementUpdate struct {
 	Element json.RawMessage
 }
 
+type ModelUpdate struct {
+	OldName string
+	Model   addie.Model
+}
+
 type Update struct {
 	Elements []ElementUpdate
+	Models   []ModelUpdate
 }
 
 type Delete struct {
