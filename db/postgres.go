@@ -414,6 +414,33 @@ func ReadDesign(name, owner string) (*addie.Design, error) {
 			dsg.Elements[l.Id] = l
 		}
 
+		//models
+		models, err := ReadSystemModels(sys_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		for _, m := range models {
+			dsg.Elements[m.Id] = m
+		}
+
+		//saxs
+		saxs, err := ReadSystemSaxs(sys_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		for _, s := range saxs {
+			dsg.Elements[s.Id] = s
+		}
+
+		//plinks
+		plinks, err := ReadSystemPlinks(sys_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		for _, p := range plinks {
+			dsg.Elements[p.Id] = p
+		}
+
 	}
 
 	return &dsg, nil
@@ -1724,8 +1751,6 @@ func UpdateModel(oid addie.Id, m addie.Model, owner string) (int, error) {
 	q = fmt.Sprintf("UPDATE models SET params = '%s', equations = '%s' WHERE id = %d",
 		pgMathStr(m.Params), pgMathStr(m.Equations), key)
 
-	log.Println(m)
-
 	err = runC(q)
 	if err != nil {
 		return key, updateFailure(err)
@@ -1785,6 +1810,40 @@ func ReadModel(id addie.Id, owner string) (*addie.Model, error) {
 	}
 
 	return ReadModelByKey(key)
+
+}
+
+func ReadSystemModels(key int) ([]addie.Model, error) {
+
+	var result []addie.Model
+
+	q := fmt.Sprintf(
+		"SELECT models.id FROM models "+
+			"INNER JOIN ids on models.id = ids.id "+
+			"WHERE ids.sys_id = %d", key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	for rows.Next() {
+		var mdl_key int
+		err := rows.Scan(&mdl_key)
+		if err != nil {
+			return nil, scanFailure(err)
+		}
+
+		mdl, err := ReadModelByKey(mdl_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		result = append(result, *mdl)
+	}
+
+	return result, nil
 
 }
 
@@ -1903,6 +1962,40 @@ func ReadSax(id addie.Id, owner string) (*addie.Sax, error) {
 
 }
 
+func ReadSystemSaxs(key int) ([]addie.Sax, error) {
+
+	var result []addie.Sax
+
+	q := fmt.Sprintf(
+		"SELECT saxs.id FROM saxs "+
+			"INNER JOIN ids on saxs.id = ids.id "+
+			"WHERE ids.sys_id = %d", key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	for rows.Next() {
+		var sax_key int
+		err := rows.Scan(&sax_key)
+		if err != nil {
+			return nil, scanFailure(err)
+		}
+
+		sax, err := ReadSaxByKey(sax_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		result = append(result, *sax)
+	}
+
+	return result, nil
+
+}
+
 // Plinks ----------------------------------------------------------------------------
 
 func CreatePlink(p addie.Plink, owner string) error {
@@ -1998,8 +2091,6 @@ func ReadPlink(id addie.Id, p addie.Plink, owner string) (*addie.Plink, error) {
 
 func UpdatePlink(oid addie.Id, p addie.Plink, owner string) (int, error) {
 
-	log.Println(p)
-
 	key, err := UpdateId(oid, p.Id, owner)
 	if err != nil {
 		return -1, updateFailure(err)
@@ -2026,5 +2117,39 @@ func UpdatePlink(oid addie.Id, p addie.Plink, owner string) (int, error) {
 	}
 
 	return key, nil
+
+}
+
+func ReadSystemPlinks(key int) ([]addie.Plink, error) {
+
+	var result []addie.Plink
+
+	q := fmt.Sprintf(
+		"SELECT plinks.id FROM plinks "+
+			"INNER JOIN ids on plinks.id = ids.id "+
+			"WHERE ids.sys_id = %d", key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	for rows.Next() {
+		var plnk_key int
+		err := rows.Scan(&plnk_key)
+		if err != nil {
+			return nil, scanFailure(err)
+		}
+
+		plnk, err := ReadPlinkByKey(plnk_key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		result = append(result, *plnk)
+	}
+
+	return result, nil
 
 }
