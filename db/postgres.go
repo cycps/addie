@@ -1829,8 +1829,8 @@ func UpdateSax(oid addie.Id, s addie.Sax, owner string) (int, error) {
 	if !rows.Next() {
 		return key, emptyReadFailure()
 	}
-	var pos_key, pkt_key int
-	err = rows.Scan(&pos_key, &pkt_key)
+	var pos_key int
+	err = rows.Scan(&pos_key)
 	if err != nil {
 		return key, scanFailure(err)
 	}
@@ -1840,7 +1840,7 @@ func UpdateSax(oid addie.Id, s addie.Sax, owner string) (int, error) {
 		return key, updateFailure(err)
 	}
 
-	q = fmt.Sprintf("UPDATE saxs SET actuate = '%s', sense = '%s' WHERE id %d",
+	q = fmt.Sprintf("UPDATE saxs SET actuate = '%s', sense = '%s' WHERE id = %d",
 		s.Actuate, s.Sense, key)
 
 	err = runC(q)
@@ -1997,6 +1997,8 @@ func ReadPlink(id addie.Id, p addie.Plink, owner string) (*addie.Plink, error) {
 }
 
 func UpdatePlink(oid addie.Id, p addie.Plink, owner string) (int, error) {
+
+	log.Println(p)
 
 	key, err := UpdateId(oid, p.Id, owner)
 	if err != nil {
