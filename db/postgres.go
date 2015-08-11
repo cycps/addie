@@ -1710,7 +1710,8 @@ func CreateModel(m addie.Model, owner string) (int, error) {
 	}
 
 	q := fmt.Sprintf("INSERT INTO models (id, position_id, params, equations) "+
-		"values (%d, %d, '%s', '%s')", key, pos_key, m.Params, m.Equations)
+		"values (%d, %d, '%s', '%s')", key, pos_key,
+		pgMathStr(m.Params), pgMathStr(m.Equations))
 
 	err = runC(q)
 	if err != nil {
@@ -1851,7 +1852,7 @@ func ReadSystemModels(key int) ([]addie.Model, error) {
 
 func CreateSax(s addie.Sax, owner string) (int, error) {
 
-	key, err := CreateId(s.Id, owner)
+	key, err := CreateNetworkHost(s.NetHost, owner)
 	if err != nil {
 		return -1, createFailure(err)
 	}
@@ -1873,9 +1874,11 @@ func CreateSax(s addie.Sax, owner string) (int, error) {
 
 }
 
-func UpdateSax(oid addie.Id, s addie.Sax, owner string) (int, error) {
+func UpdateSax(oid addie.Id, old, s addie.Sax, owner string) (int, error) {
 
-	key, err := UpdateId(oid, s.Id, owner)
+	log.Println(s)
+
+	key, err := UpdateNetworkHost(oid, old.NetHost, s.NetHost, owner)
 	if err != nil {
 		return -1, updateFailure(err)
 	}
@@ -1941,8 +1944,14 @@ func ReadSaxByKey(key int) (*addie.Sax, error) {
 		return nil, readFailure(err)
 	}
 
+	ifs, err := ReadHostInterfaces(key)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
 	s := addie.Sax{}
 	s.Id = *id
+	s.Interfaces = *ifs
 	s.Position = *pos
 	s.Sense = sense
 	s.Actuate = actuate

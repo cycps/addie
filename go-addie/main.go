@@ -100,7 +100,7 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 		_, err = db.UpdateModel(oid, m, user)
 	case addie.Sax:
 		s := e.(addie.Sax)
-		_, err = db.UpdateSax(oid, s, user)
+		_, err = db.UpdateSax(oid, old.(addie.Sax), s, user)
 	case addie.Plink:
 		p := e.(addie.Plink)
 		_, err = db.UpdatePlink(oid, p, user)

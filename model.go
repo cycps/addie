@@ -179,7 +179,7 @@ type Actuator struct {
 func (a Actuator) Identify() Id { return a.Id }
 
 type Sax struct {
-	Id
+	NetHost
 	Position Position `json:"position"`
 	Sense    string   `json:"sense"`
 	Actuate  string   `json:"actuate"`
