@@ -53,14 +53,14 @@ func dbCreate(e addie.Identify) {
 		l := e.(addie.Link)
 		err = db.CreateLink(l, user)
 	case addie.Model:
-		_ = e.(addie.Model)
-		//db.CreateModel(m, user) TODO
+		m := e.(addie.Model)
+		db.CreateModel(m, user)
 	case addie.Sax:
-		_ = e.(addie.Sax)
-		//db.CreateSax(s, user) TODO
+		s := e.(addie.Sax)
+		db.CreateSax(s, user)
 	case addie.Plink:
-		_ = e.(addie.Plink)
-		//db.CreatePlink(s, user) TODO
+		p := e.(addie.Plink)
+		db.CreatePlink(p, user)
 	default:
 		log.Printf("[dbCreate] unkown or unsupported element type: %T \n", t)
 	}
@@ -96,14 +96,14 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 		l := e.(addie.Link)
 		_, err = db.UpdateLink(oid, l, user)
 	case addie.Model:
-		_ = e.(addie.Model)
-		//_, err = db.UpdateModel(oid, m, user) TODO
+		m := e.(addie.Model)
+		_, err = db.UpdateModel(oid, m, user)
 	case addie.Sax:
-		_ = e.(addie.Sax)
-		//_, err = db.UpdateSax(oid, s, user) TODO
+		s := e.(addie.Sax)
+		_, err = db.UpdateSax(oid, s, user)
 	case addie.Plink:
-		_ = e.(addie.Plink)
-		//_, err = db.updatePlink(s, user) TODO
+		p := e.(addie.Plink)
+		_, err = db.UpdatePlink(oid, p, user)
 	default:
 		log.Printf("[dbUpdate] unkown or unsupported element type: %T \n", t)
 	}

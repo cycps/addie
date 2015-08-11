@@ -25,6 +25,10 @@ const (
 var db *sql.DB = nil
 var tx *sql.Tx = nil
 
+func pgMathStr(s string) string {
+	return strings.Replace(s, "'", "''", -1)
+}
+
 func dbConnect() error {
 	var err error = nil
 	if db == nil {
@@ -1678,7 +1682,7 @@ func CreateModel(m addie.Model, owner string) (int, error) {
 		return key, createFailure(err)
 	}
 
-	q := fmt.Sprintf("INSERT INTO computers (id, position_id, params, equations) "+
+	q := fmt.Sprintf("INSERT INTO models (id, position_id, params, equations) "+
 		"values (%d, %d, '%s', '%s')", key, pos_key, m.Params, m.Equations)
 
 	err = runC(q)
@@ -1690,14 +1694,14 @@ func CreateModel(m addie.Model, owner string) (int, error) {
 
 }
 
-func UpdateModel(oid addie.Id, old, m addie.Model, owner string) (int, error) {
+func UpdateModel(oid addie.Id, m addie.Model, owner string) (int, error) {
 
 	key, err := UpdateId(oid, m.Id, owner)
 	if err != nil {
 		return -1, updateFailure(err)
 	}
 
-	q := fmt.Sprintf("SELECT position_id FROM routers WHERE id = %d", key)
+	q := fmt.Sprintf("SELECT position_id FROM models WHERE id = %d", key)
 	rows, err := runQ(q)
 	defer safeClose(rows)
 	if err != nil {
@@ -1706,8 +1710,8 @@ func UpdateModel(oid addie.Id, old, m addie.Model, owner string) (int, error) {
 	if !rows.Next() {
 		return key, emptyReadFailure()
 	}
-	var pos_key, pkt_key int
-	err = rows.Scan(&pos_key, &pkt_key)
+	var pos_key int
+	err = rows.Scan(&pos_key)
 	if err != nil {
 		return key, scanFailure(err)
 	}
@@ -1718,7 +1722,9 @@ func UpdateModel(oid addie.Id, old, m addie.Model, owner string) (int, error) {
 	}
 
 	q = fmt.Sprintf("UPDATE models SET params = '%s', equations = '%s' WHERE id = %d",
-		m.Params, m.Equations, key)
+		pgMathStr(m.Params), pgMathStr(m.Equations), key)
+
+	log.Println(m)
 
 	err = runC(q)
 	if err != nil {
@@ -1808,7 +1814,7 @@ func CreateSax(s addie.Sax, owner string) (int, error) {
 
 }
 
-func UpdateSax(oid addie.Id, old, s addie.Sax, owner string) (int, error) {
+func UpdateSax(oid addie.Id, s addie.Sax, owner string) (int, error) {
 
 	key, err := UpdateId(oid, s.Id, owner)
 	if err != nil {
