@@ -14,6 +14,7 @@ import (
 )
 
 var design addie.Design
+var userModels map[string]addie.Model
 var cypdir = os.ExpandEnv("$HOME/.cypress")
 var user = ""
 
@@ -26,12 +27,19 @@ func main() {
 
 	loadDesign(os.Args[2])
 	user = os.Args[1]
+	loadUserModels()
 	listen()
 }
 
 func loadDesign(id string) {
 
 	design = addie.EmptyDesign(id)
+
+}
+
+func loadUserModels() {
+
+	userModels = make(map[string]addie.Model)
 
 }
 
@@ -53,14 +61,17 @@ func dbCreate(e addie.Identify) {
 		l := e.(addie.Link)
 		err = db.CreateLink(l, user)
 	case addie.Phyo:
-		m := e.(addie.Phyo)
-		db.CreatePhyo(m, user)
+		p := e.(addie.Phyo)
+		_, err = db.CreatePhyo(p, user)
+	case addie.Model:
+		m := e.(addie.Model)
+		err = db.CreateModel(m, user)
 	case addie.Sax:
 		s := e.(addie.Sax)
-		db.CreateSax(s, user)
+		_, err = db.CreateSax(s, user)
 	case addie.Plink:
 		p := e.(addie.Plink)
-		db.CreatePlink(p, user)
+		err = db.CreatePlink(p, user)
 	default:
 		log.Printf("[dbCreate] unkown or unsupported element type: %T \n", t)
 	}
@@ -75,10 +86,21 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 	log.Printf("[dbUpdate] %T '%s'", e, e.Identify())
 	var err error = nil
 
-	old, ok := design.Elements[oid]
-	if !ok {
-		log.Printf("[Update] bad oid %v\n", oid)
-		return
+	var old addie.Identify
+	var ok bool
+
+	if reflect.TypeOf(e).Name() == "Model" {
+		old, ok = userModels[oid.Name]
+		if !ok {
+			log.Printf("[Update] bad oid %v\n", oid)
+			return
+		}
+	} else {
+		old, ok = design.Elements[oid]
+		if !ok {
+			log.Printf("[Update] bad oid %v\n", oid)
+			return
+		}
 	}
 
 	//todo perform check old.(type) conversion
@@ -96,8 +118,11 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 		l := e.(addie.Link)
 		_, err = db.UpdateLink(oid, l, user)
 	case addie.Phyo:
-		m := e.(addie.Phyo)
-		_, err = db.UpdatePhyo(oid, m, user)
+		p := e.(addie.Phyo)
+		_, err = db.UpdatePhyo(oid, p, user)
+	case addie.Model:
+		m := e.(addie.Model)
+		err = db.UpdateModel(oid.Name, m, user)
 	case addie.Sax:
 		s := e.(addie.Sax)
 		_, err = db.UpdateSax(oid, old.(addie.Sax), s, user)
@@ -112,6 +137,10 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 		log.Println(err)
 	}
 
+}
+
+func modelId(name string) addie.Id {
+	return addie.Id{Name: name, Sys: "", Design: ""}
 }
 
 func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -155,6 +184,22 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	}
 
+	var new_models []addie.Model
+	var changed_models []addie.Model
+	var changed_model_oids []addie.Id
+
+	var placeModel = func(oid string, m addie.Model) {
+
+		_, ok := userModels[oid]
+		if !ok {
+			new_models = append(new_models, m)
+		} else {
+			changed_models = append(changed_models, m)
+			changed_model_oids = append(changed_model_oids, modelId(oid))
+		}
+
+	}
+
 	for _, u := range msg.Elements {
 
 		switch u.Type {
@@ -180,12 +225,19 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			}
 			place(u.OID, r)
 		case "Phyo":
-			var m addie.Phyo
+			var p addie.Phyo
+			err := json.Unmarshal(u.Element, &p)
+			if err != nil {
+				log.Println("unable to unmarshal phyo")
+			}
+			place(u.OID, p)
+		case "Model":
+			var m addie.Model
 			err := json.Unmarshal(u.Element, &m)
 			if err != nil {
 				log.Println("unable to unmarshal model")
 			}
-			place(u.OID, m)
+			placeModel(u.OID.Name, m)
 		case "Sensor":
 			var s addie.Sensor
 			err := json.Unmarshal(u.Element, &s)
@@ -225,6 +277,15 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			log.Println("unkown element type: ", u.Type)
 		}
 
+	}
+
+	for i, u := range changed_models {
+		dbUpdate(changed_model_oids[i], u)
+		userModels[u.Name] = u
+	}
+	for _, c := range new_models {
+		dbCreate(c)
+		userModels[c.Name] = c
 	}
 
 	for i, u := range changed_nodes {
@@ -301,12 +362,23 @@ func doRead() error {
 
 	design = *dsg
 
+	mls, err := db.ReadUserModels(user)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("failed to read user models")
+	}
+
+	for _, v := range mls {
+		userModels[v.Name] = v
+	}
+
 	return nil
 }
 
 type JsonModel struct {
 	Name     string        `json:"name"`
 	Elements []TypeWrapper `json:"elements"`
+	Models   []addie.Model `json:"models"`
 }
 
 func modelJson() ([]byte, error) {
@@ -315,10 +387,17 @@ func modelJson() ([]byte, error) {
 	mdl.Name = design.Name
 
 	mdl.Elements = make([]TypeWrapper, len(design.Elements))
+	mdl.Models = make([]addie.Model, len(userModels))
 
 	i := 0
 	for _, v := range design.Elements {
 		mdl.Elements[i] = typeWrap(v)
+		i++
+	}
+
+	i = 0
+	for _, v := range userModels {
+		mdl.Models[i] = v
 		i++
 	}
 

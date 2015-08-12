@@ -136,6 +136,8 @@ type Model struct {
 	Equations string `json:"equations"`
 }
 
+func (m Model) Identify() Id { return Id{Name: m.Name, Sys: "", Design: ""} }
+
 type Phyo struct {
 	Id
 	Position Position `json:"position"`
@@ -143,7 +145,7 @@ type Phyo struct {
 	Params   string   `json:"params"`
 }
 
-func (m Phyo) Identify() Id { return m.Id }
+func (p Phyo) Identify() Id { return p.Id }
 
 type Binding [2]string
 

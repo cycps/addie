@@ -1723,7 +1723,7 @@ func UpdateModel(oldName string, m addie.Model, owner string) error {
 	}
 
 	q := fmt.Sprintf("UPDATE models SET name = '%s', equations = '%s' "+
-		"WHERE user_id = '%s' AND name = '%s'", m.Name, pgMathStr(m.Equations),
+		"WHERE user_id = %d AND name = '%s'", m.Name, pgMathStr(m.Equations),
 		user_key, oldName)
 
 	err = runC(q)
@@ -1780,15 +1780,52 @@ func ReadModelKey(name, owner string) (int, error) {
 		return -1, readFailure(err)
 	}
 
-	q := fmt.Sprintf("SELECT id FROM models WHERE name = '%s' AND user_id = '%s'",
+	q := fmt.Sprintf("SELECT id FROM models WHERE name = '%s' AND user_id = %d",
 		name, user_key)
 
 	key, err := getKey(q)
 	if err != nil {
+		log.Printf("ReadModelKey: %s", name)
 		return -1, selectFailure(err)
 	}
 
 	return key, nil
+}
+
+func ReadUserModels(owner string) ([]addie.Model, error) {
+
+	var result []addie.Model
+
+	user_key, err := ReadUserKey(owner)
+	if err != nil {
+		return nil, readFailure(err)
+	}
+
+	q := fmt.Sprintf("SELECT id FROM models WHERE user_id = %d", user_key)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	for rows.Next() {
+		var key int
+		err := rows.Scan(&key)
+		if err != nil {
+			return nil, scanFailure(err)
+		}
+
+		mdl, err := ReadModelByKey(key)
+		if err != nil {
+			return nil, readFailure(err)
+		}
+		result = append(result, *mdl)
+	}
+
+	return result, nil
+
 }
 
 // Phyos ----------------------------------------------------------------------------
@@ -1810,8 +1847,8 @@ func CreatePhyo(p addie.Phyo, owner string) (int, error) {
 		return key, readFailure(err)
 	}
 
-	q := fmt.Sprintf("INSERT INTO phyos (id, position_id, mdl_key, params) "+
-		"values (%d, %d, %d, '%s', )", key, pos_key, mdl_key, pgMathStr(p.Params))
+	q := fmt.Sprintf("INSERT INTO phyos (id, position_id, model_id, params) "+
+		"values (%d, %d, %d, '%s')", key, pos_key, mdl_key, pgMathStr(p.Params))
 
 	err = runC(q)
 	if err != nil {
@@ -1929,7 +1966,7 @@ func ReadSystemPhyos(key int) ([]addie.Phyo, error) {
 	var result []addie.Phyo
 
 	q := fmt.Sprintf(
-		"SELECT phyos.id FROM models "+
+		"SELECT phyos.id FROM phyos "+
 			"INNER JOIN ids on phyos.id = ids.id "+
 			"WHERE ids.sys_id = %d", key)
 
