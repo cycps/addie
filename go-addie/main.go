@@ -14,7 +14,7 @@ import (
 )
 
 var design addie.Design
-var userModels map[string]addie.Model
+var userModels = make(map[string]addie.Model)
 var cypdir = os.ExpandEnv("$HOME/.cypress")
 var user = ""
 
