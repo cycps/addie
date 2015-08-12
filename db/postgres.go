@@ -1704,8 +1704,9 @@ func CreateModel(m addie.Model, owner string) error {
 		return readFailure(err)
 	}
 
-	q := fmt.Sprintf("INSERT INTO models (user_id, name, equations) "+
-		"values (%d, '%s', '%s')", user_key, m.Name, pgMathStr(m.Equations))
+	q := fmt.Sprintf("INSERT INTO models (user_id, name, equations, params) "+
+		"values (%d, '%s', '%s', '%s')",
+		user_key, m.Name, pgMathStr(m.Equations), m.Params)
 
 	err = runC(q)
 	if err != nil {
@@ -1722,8 +1723,8 @@ func UpdateModel(oldName string, m addie.Model, owner string) error {
 		return readFailure(err)
 	}
 
-	q := fmt.Sprintf("UPDATE models SET name = '%s', equations = '%s' "+
-		"WHERE user_id = %d AND name = '%s'", m.Name, pgMathStr(m.Equations),
+	q := fmt.Sprintf("UPDATE models SET name = '%s', equations = '%s', params = '%s' "+
+		"WHERE user_id = %d AND name = '%s'", m.Name, pgMathStr(m.Equations), m.Params,
 		user_key, oldName)
 
 	err = runC(q)
@@ -1737,7 +1738,7 @@ func UpdateModel(oldName string, m addie.Model, owner string) error {
 
 func ReadModelByKey(key int) (*addie.Model, error) {
 
-	q := fmt.Sprintf("SELECT name, equations FROM models WHERE id = %d", key)
+	q := fmt.Sprintf("SELECT name, equations, params FROM models WHERE id = %d", key)
 
 	rows, err := runQ(q)
 	defer safeClose(rows)
@@ -1748,8 +1749,8 @@ func ReadModelByKey(key int) (*addie.Model, error) {
 		return nil, emptyReadFailure()
 	}
 
-	var name, equations string
-	err = rows.Scan(&name, &equations)
+	var name, equations, params string
+	err = rows.Scan(&name, &equations, &params)
 	if err != nil {
 		return nil, scanFailure(err)
 	}
@@ -1758,6 +1759,7 @@ func ReadModelByKey(key int) (*addie.Model, error) {
 	var m addie.Model
 	m.Name = name
 	m.Equations = equations
+	m.Params = params
 
 	return &m, nil
 
@@ -1847,8 +1849,8 @@ func CreatePhyo(p addie.Phyo, owner string) (int, error) {
 		return key, readFailure(err)
 	}
 
-	q := fmt.Sprintf("INSERT INTO phyos (id, position_id, model_id, params) "+
-		"values (%d, %d, %d, '%s')", key, pos_key, mdl_key, pgMathStr(p.Params))
+	q := fmt.Sprintf("INSERT INTO phyos (id, position_id, model_id, args) "+
+		"values (%d, %d, %d, '%s')", key, pos_key, mdl_key, pgMathStr(p.Args))
 
 	err = runC(q)
 	if err != nil {
@@ -1891,8 +1893,8 @@ func UpdatePhyo(oid addie.Id, p addie.Phyo, owner string) (int, error) {
 		return key, readFailure(err)
 	}
 
-	q = fmt.Sprintf("UPDATE phyos SET params = '%s', model_id= %d WHERE id = %d",
-		pgMathStr(p.Params), mdl_key, key)
+	q = fmt.Sprintf("UPDATE phyos SET args = '%s', model_id= %d WHERE id = %d",
+		pgMathStr(p.Args), mdl_key, key)
 
 	err = runC(q)
 	if err != nil {
@@ -1910,7 +1912,7 @@ func ReadPhyoByKey(key int) (*addie.Phyo, error) {
 		return nil, readFailure(err)
 	}
 
-	q := fmt.Sprintf("SELECT params, model_id, position_id FROM phyos WHERE id = %d",
+	q := fmt.Sprintf("SELECT args, model_id, position_id FROM phyos WHERE id = %d",
 		key)
 
 	rows, err := runQ(q)
@@ -1923,9 +1925,9 @@ func ReadPhyoByKey(key int) (*addie.Phyo, error) {
 		return nil, emptyReadFailure()
 	}
 
-	var params string
+	var args string
 	var pos_key, mdl_key int
-	err = rows.Scan(&params, &mdl_key, &pos_key)
+	err = rows.Scan(&args, &mdl_key, &pos_key)
 	if err != nil {
 		return nil, scanFailure(err)
 	}
@@ -1944,7 +1946,7 @@ func ReadPhyoByKey(key int) (*addie.Phyo, error) {
 	p := addie.Phyo{}
 	p.Id = *id
 	p.Position = *pos
-	p.Params = params
+	p.Args = args
 	p.Model = mdl.Name
 
 	return &p, nil

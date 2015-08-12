@@ -368,6 +368,8 @@ func doRead() error {
 		return fmt.Errorf("failed to read user models")
 	}
 
+	userModels = make(map[string]addie.Model)
+
 	for _, v := range mls {
 		userModels[v.Name] = v
 	}

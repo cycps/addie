@@ -134,6 +134,7 @@ func (l *Link) Equals(x *Link) bool {
 type Model struct {
 	Name      string `json:"name"`
 	Equations string `json:"equations"`
+	Params    string `json:"params"`
 }
 
 func (m Model) Identify() Id { return Id{Name: m.Name, Sys: "", Design: ""} }
@@ -142,7 +143,7 @@ type Phyo struct {
 	Id
 	Position Position `json:"position"`
 	Model    string   `json:"model"`
-	Params   string   `json:"params"`
+	Args     string   `json:"args"`
 }
 
 func (p Phyo) Identify() Id { return p.Id }
