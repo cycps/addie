@@ -4,18 +4,17 @@ import (
 	"testing"
 )
 
-var expected_src = `
-Object Rotor
+var expected_src = `Object Rotor(H)
   w' = tau - H*w^2
-	theta' = w
+  theta' = w
 
-Simulation RotorSim
-  Rotor0 rotor0(H:1.5)
-  Actuator sax0_A_tau(Min:-10, Max:10, DMin:-0.4, DMax:0.4)
+Simulation chinook
+  Rotor rtr(H:2.5)
   Sensor sax0_S_w(Rate:30, Destination:localhost)
+  Actuator sax0_A_tau(Min:-10, Max:10, DMin:-0.4, DMax:0.4)
 
-	sax0_A_tau.u ~ rotor0.tau
-	rotor0.w ~ sax0_S_w.y
+  rtr.w ~ sax0_S_w.y
+  rtr.tau ~ sax0_A_tau.u
 `
 
 func TestGenerateSourceFromDB(t *testing.T) {
@@ -28,8 +27,9 @@ func TestGenerateSourceFromDB(t *testing.T) {
 
 	if src != expected_src {
 		t.Log("src:")
-		t.Log(src)
-		t.Fatal("the generated source is not correct")
+		t.Log("\n`" + src + "\n`")
+		t.Error("the generated source is not correct")
+		t.Log("\n`" + expected_src + "\n`")
 	}
 
 }
