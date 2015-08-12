@@ -2023,8 +2023,6 @@ func CreateSax(s addie.Sax, owner string) (int, error) {
 
 func UpdateSax(oid addie.Id, old, s addie.Sax, owner string) (int, error) {
 
-	log.Println(s)
-
 	key, err := UpdateNetworkHost(oid, old.NetHost, s.NetHost, owner)
 	if err != nil {
 		return -1, updateFailure(err)

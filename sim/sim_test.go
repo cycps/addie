@@ -5,7 +5,7 @@ import (
 )
 
 var expected_src = `
-Object Rotor0(H)
+Object Rotor
   w' = tau - H*w^2
 	theta' = w
 
@@ -20,7 +20,11 @@ Simulation RotorSim
 
 func TestGenerateSourceFromDB(t *testing.T) {
 
-	src := GenerateSourceFromDB("chinook")
+	src, err := GenerateSourceFromDB("chinook", "murphy")
+	if err != nil {
+		t.Log(err)
+		t.Fatal("db failure")
+	}
 
 	if src != expected_src {
 		t.Log("src:")
