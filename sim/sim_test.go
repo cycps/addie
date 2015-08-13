@@ -1,6 +1,8 @@
 package sim
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -28,8 +30,21 @@ func TestGenerateSourceFromDB(t *testing.T) {
 	if src != expected_src {
 		t.Log("src:")
 		t.Log("\n`" + src + "\n`")
-		t.Error("the generated source is not correct")
 		t.Log("\n`" + expected_src + "\n`")
+		t.Fatal("the generated source is not correct")
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Log(err)
+		t.Fatal("cwd anger")
+	}
+	out := wd + "/" + "chinook.cyp"
+	t.Log(out)
+	err = ioutil.WriteFile(out, []byte(src), 0664)
+	if err != nil {
+		t.Log(err)
+		t.Fatal("could not write sim source")
 	}
 
 }
