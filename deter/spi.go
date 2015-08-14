@@ -146,7 +146,7 @@ func linkSubstrate(link *addie.Link, dsg *addie.Design,
 	return nil
 }
 
-func designTopDL(dsg *addie.Design) spi.Experiment {
+func DesignTopDL(dsg *addie.Design) spi.Experiment {
 
 	var xp spi.Experiment
 
@@ -195,7 +195,7 @@ func designTopDL(dsg *addie.Design) spi.Experiment {
 
 func CreateDeterXP(user string, dsg *addie.Design) error {
 
-	xp := designTopDL(dsg)
+	xp := DesignTopDL(dsg)
 
 	//create a session with the DeterLab SPI
 	err := spi.Login("deterboss", "muffins")

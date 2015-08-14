@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"github.com/cycps/addie"
 	"github.com/cycps/addie/db"
+	"github.com/cycps/addie/deter"
 	"github.com/cycps/addie/protocol"
 	"github.com/cycps/addie/sim"
 	"github.com/julienschmidt/httprouter"
@@ -429,6 +431,10 @@ func simFileName() string {
 	return userDir() + "/" + design.Name + ".cys"
 }
 
+func topdlFileName() string {
+	return userDir() + "/" + design.Name + ".topdl"
+}
+
 func compileSim() {
 
 	models := make([]addie.Model, len(userModels))
@@ -454,12 +460,22 @@ func compileSim() {
 
 func compileTopDL() {
 
+	xp := deter.DesignTopDL(&design)
+	topdl, err := xml.MarshalIndent(xp, "  ", "  ")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	ioutil.WriteFile(topdlFileName(), topdl, 0644)
+
 }
 
 func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("addie compiling design")
 	w.Write([]byte("ok"))
 	compileSim()
+	compileTopDL()
 }
 
 func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
