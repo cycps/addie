@@ -6,10 +6,13 @@ import (
 	"github.com/cycps/addie"
 	"github.com/cycps/addie/db"
 	"github.com/cycps/addie/protocol"
+	"github.com/cycps/addie/sim"
 	"github.com/julienschmidt/httprouter"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"reflect"
 )
 
@@ -27,8 +30,13 @@ func main() {
 
 	loadDesign(os.Args[2])
 	user = os.Args[1]
+	checkUserDir()
 	loadUserModels()
 	listen()
+}
+
+func checkUserDir() {
+	os.MkdirAll("/cypress/"+user, 0755)
 }
 
 func loadDesign(id string) {
@@ -413,13 +421,59 @@ func modelJson() ([]byte, error) {
 
 }
 
+func userDir() string {
+	return "/cypress/" + user
+}
+
+func simFileName() string {
+	return userDir() + "/" + design.Name + ".cys"
+}
+
+func compileSim() {
+
+	models := make([]addie.Model, len(userModels))
+	i := 0
+	for _, v := range userModels {
+		models[i] = v
+		i++
+	}
+	src := sim.GenerateSource(&design, models)
+	ioutil.WriteFile(simFileName(), []byte(src), 0644)
+
+	cmd := exec.Command("cyc", simFileName())
+	cmd.Dir = userDir()
+	outp, err := cmd.Output()
+	if err != nil {
+		log.Println("could not execute cyc")
+		log.Println(err)
+	}
+
+	log.Println("cyc returned:")
+	log.Println(string(outp))
+}
+
+func compileTopDL() {
+
+}
+
+func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	log.Println("addie compiling design")
+	w.Write([]byte("ok"))
+	compileSim()
+}
+
+func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	log.Println("addie running experiment")
+	w.Write([]byte("ok"))
+}
+
 func listen() {
 
 	router := httprouter.New()
-	//router.POST("/:xpid/design/update", onUpdate)
 	router.POST("/"+design.Name+"/design/update", onUpdate)
 	router.GET("/"+design.Name+"/design/read", onRead)
-	//router.POST("/:xpid/design/delete", onDelete)
+	router.GET("/"+design.Name+"/design/compile", onCompile)
+	router.GET("/"+design.Name+"/design/run", onRun)
 
 	err := doRead()
 	if err != nil {
