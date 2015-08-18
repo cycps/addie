@@ -456,6 +456,14 @@ func compileSim() {
 
 	log.Println("cyc returned:")
 	log.Println(string(outp))
+
+	cmd = exec.Command("./build_rcomp.sh")
+	cmd.Dir = userDir() + "/" + design.Name + ".cypk"
+	outp, err = cmd.Output()
+	if err != nil {
+		log.Println("could not build simulation")
+		log.Println(err)
+	}
 }
 
 func compileTopDL() {
@@ -483,6 +491,20 @@ func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.Write([]byte("ok"))
 }
 
+func onRawData(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	log.Println("getting raw data")
+
+	data, err := ioutil.ReadFile(userDir() + "/" + design.Name + ".cypk/cnode0.results")
+	if err != nil {
+		log.Println("could not read results")
+		log.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	w.Write([]byte(data))
+}
+
 func listen() {
 
 	router := httprouter.New()
@@ -490,6 +512,7 @@ func listen() {
 	router.GET("/"+design.Name+"/design/read", onRead)
 	router.GET("/"+design.Name+"/design/compile", onCompile)
 	router.GET("/"+design.Name+"/design/run", onRun)
+	router.GET("/"+design.Name+"/analyze/rawData", onRawData)
 
 	err := doRead()
 	if err != nil {
