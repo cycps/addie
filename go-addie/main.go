@@ -218,9 +218,13 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var new_models []addie.Model
 	var changed_models []addie.Model
 	var changed_model_oids []addie.Id
+	var modelKillList []string
 
 	var placeModel = func(oid string, m addie.Model) {
 
+		if m.Name != oid {
+			modelKillList = append(modelKillList, oid)
+		}
 		_, ok := userModels[oid]
 		if !ok {
 			new_models = append(new_models, m)
@@ -349,6 +353,10 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	for _, k := range killList {
 		delete(design.Elements, k)
+	}
+
+	for _, k := range modelKillList {
+		delete(userModels, k)
 	}
 
 	//log.Println("\n", design.String())
