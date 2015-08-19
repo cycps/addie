@@ -217,3 +217,11 @@ func EmptyDesign(name string) Design {
 	m.Elements = make(map[Id]Identify)
 	return m
 }
+
+//Settings---------------------------------------------------------------------
+
+type SimSettings struct {
+	Begin   float64 `json:"begin"`
+	End     float64 `json:"end"`
+	MaxStep float64 `json:"maxStep"`
+}

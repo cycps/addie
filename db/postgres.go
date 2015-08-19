@@ -446,6 +446,69 @@ func ReadDesign(name, owner string) (*addie.Design, error) {
 	return &dsg, nil
 }
 
+// Sim Settings ---------------------------------------------------------------
+
+func CreateSimSettings(s addie.SimSettings, design_key int) error {
+
+	q := fmt.Sprintf(
+		"INSERT INTO sim_settings (design_id, tbegin, tend, max_step)"+
+			"VALUES (%d, %f, %f, %f)", design_key, s.Begin, s.End, s.MaxStep)
+
+	err := runC(q)
+	if err != nil {
+		return insertFailure(err)
+	}
+
+	return nil
+
+}
+
+func UpdateSimSettings(s addie.SimSettings, design_key int) error {
+
+	q := fmt.Sprintf(
+		"UPDATE sim_settings SET tbegin = %f, tend = %f, max_step = %f"+
+			"WHERE design_id = %d", s.Begin, s.End, s.MaxStep, design_key)
+
+	err := runC(q)
+	if err != nil {
+		return updateFailure(err)
+	}
+
+	return nil
+
+}
+
+func ReadSimSettingsByDesignId(design_id int) (*addie.SimSettings, error) {
+
+	q := fmt.Sprintf(
+		"SELECT tbegin, tend, max_step FROM sim_settings WHERE design_id = %d",
+		design_id)
+
+	rows, err := runQ(q)
+	defer safeClose(rows)
+	if err != nil {
+		return nil, selectFailure(err)
+	}
+
+	if !rows.Next() {
+		return nil, emptyReadFailure()
+	}
+	var begin, end, maxStep float64
+	err = rows.Scan(&begin, &end, &maxStep)
+	if err != nil {
+		return nil, scanFailure(err)
+	}
+	rows.Close()
+
+	s := addie.SimSettings{}
+	s.Begin = begin
+	s.End = end
+	s.MaxStep = maxStep
+
+	return &s, nil
+
+}
+
 // Systems --------------------------------------------------------------------
 
 func CreateSystem(name, design, owner string) (int, error) {

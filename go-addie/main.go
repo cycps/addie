@@ -20,6 +20,7 @@ import (
 
 var design addie.Design
 var userModels = make(map[string]addie.Model)
+var simSettings addie.SimSettings
 var cypdir = os.ExpandEnv("$HOME/.cypress")
 var user = ""
 
@@ -147,6 +148,25 @@ func dbUpdate(oid addie.Id, e addie.Identify) {
 		log.Println(err)
 	}
 
+}
+
+func updateSimSettings(s addie.SimSettings) {
+
+	design_key, err := db.ReadDesignKey(design.Name, user)
+	if err != nil {
+		log.Println(err)
+		log.Printf("[updateSimSettings] error reading design key")
+		return
+	}
+
+	err = db.UpdateSimSettings(s, design_key)
+	if err != nil {
+		log.Println("[updateSimSettings] error updating sim settings")
+		log.Println(err)
+		return
+	}
+
+	simSettings = s
 }
 
 func modelId(name string) addie.Id {
@@ -283,6 +303,15 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 				log.Println("unable to marshal sax")
 			}
 			place(u.OID, s)
+		case "SimSettings":
+			var s addie.SimSettings
+			err := json.Unmarshal(u.Element, &s)
+			if err != nil {
+				log.Println(err)
+				log.Println("unable to unmarshal SimSettings")
+				return
+			}
+			updateSimSettings(s)
 		default:
 			log.Println("unkown element type: ", u.Type)
 		}
@@ -384,13 +413,28 @@ func doRead() error {
 		userModels[v.Name] = v
 	}
 
+	design_key, err := db.ReadDesignKey(dsg.Name, user)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("error reading design key")
+	}
+
+	ss, err := db.ReadSimSettingsByDesignId(design_key)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("could not read simulation settings")
+	}
+
+	simSettings = *ss
+
 	return nil
 }
 
 type JsonModel struct {
-	Name     string        `json:"name"`
-	Elements []TypeWrapper `json:"elements"`
-	Models   []addie.Model `json:"models"`
+	Name        string            `json:"name"`
+	Elements    []TypeWrapper     `json:"elements"`
+	Models      []addie.Model     `json:"models"`
+	SimSettings addie.SimSettings `json:"simSettings"`
 }
 
 func modelJson() ([]byte, error) {
@@ -412,6 +456,8 @@ func modelJson() ([]byte, error) {
 		mdl.Models[i] = v
 		i++
 	}
+
+	mdl.SimSettings = simSettings
 
 	_json, err := json.Marshal(mdl)
 	if err != nil {

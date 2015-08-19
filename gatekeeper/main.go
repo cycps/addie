@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/cycps/addie"
 	"github.com/cycps/addie/db"
 	"github.com/cycps/addie/protocol"
 	"github.com/julienschmidt/httprouter"
@@ -158,6 +159,28 @@ func newXP(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	if err != nil {
 		log.Println(err)
 		log.Printf("[newXP] error creating design entry db")
+		w.WriteHeader(500)
+		return
+	}
+
+	design_key, err := db.ReadDesignKey(msg.Name, user)
+	if err != nil {
+		log.Println(err)
+		log.Printf("[newXP] error reading design key")
+		w.WriteHeader(500)
+		return
+	}
+
+	//use the default sim settings to begin with
+	s := addie.SimSettings{}
+	s.Begin = 0
+	s.End = 10
+	s.MaxStep = 1e-3
+
+	err = db.CreateSimSettings(s, design_key)
+	if err != nil {
+		log.Println(err)
+		log.Println("[newXP] error creating default sim settings")
 		w.WriteHeader(500)
 		return
 	}
