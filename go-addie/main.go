@@ -488,6 +488,15 @@ func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("addie running experiment")
+
+	cmd := exec.Command("./rcomp0")
+	cmd.Dir = userDir() + "/" + design.Name + ".cypk"
+	_, err := cmd.Output()
+	if err != nil {
+		log.Println("could not run simulation")
+		log.Println(err)
+	}
+
 	w.Write([]byte("ok"))
 }
 
