@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strconv"
 )
 
 var design addie.Design
@@ -535,7 +536,10 @@ func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("addie running experiment")
 
-	cmd := exec.Command("./rcomp0")
+	cmd := exec.Command("./rcomp0",
+		strconv.FormatFloat(simSettings.Begin, 'e', -1, 64),
+		strconv.FormatFloat(simSettings.End, 'e', -1, 64),
+		strconv.FormatFloat(simSettings.MaxStep, 'e', -1, 64))
 	cmd.Dir = userDir() + "/" + design.Name + ".cypk"
 	_, err := cmd.Output()
 	if err != nil {
