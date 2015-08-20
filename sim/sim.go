@@ -218,6 +218,8 @@ func plinkSrc(plink *addie.Plink, d *addie.Design) string {
 
 	for i, a := range aVars {
 
+		src += "  "
+
 		b := bVars[i]
 
 		if reflect.TypeOf(ae).Name() == "Sax" {
