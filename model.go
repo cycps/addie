@@ -144,6 +144,7 @@ type Phyo struct {
 	Position Position `json:"position"`
 	Model    string   `json:"model"`
 	Args     string   `json:"args"`
+	Init     string   `json:"init"`
 }
 
 func (p Phyo) Identify() Id { return p.Id }

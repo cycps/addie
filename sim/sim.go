@@ -110,9 +110,13 @@ func designSrc(d *addie.Design) string {
 
 func phyoSrc(p *addie.Phyo) string {
 
-	src := "  " + p.Model + " " + p.Name + "(" +
-		strings.Replace(strings.TrimSuffix(p.Args, ","), "=", ":", -1) +
-		")"
+	src := "  " + p.Model + " " + p.Name + "("
+	src += strings.Replace(strings.TrimSuffix(p.Args, ","), "=", ":", -1)
+	_init := strings.Replace(p.Init, " ", "", -1)
+	if len(_init) > 0 {
+		src += "," + strings.Replace(strings.TrimSuffix(_init, ","), "=", "|", -1)
+	}
+	src += ")"
 
 	src += "\n"
 	return src
@@ -218,13 +222,11 @@ func plinkSrc(plink *addie.Plink, d *addie.Design) string {
 
 	for i, a := range aVars {
 
-		src += "  "
-
 		b := bVars[i]
 
 		if reflect.TypeOf(ae).Name() == "Sax" {
 			s := ae.(addie.Sax)
-			src += saxName(&s, a)
+			src += "  " + saxName(&s, a)
 		} else {
 			src += "  " + aName + "." + a
 		}
@@ -235,7 +237,7 @@ func plinkSrc(plink *addie.Plink, d *addie.Design) string {
 			s := be.(addie.Sax)
 			src += saxName(&s, b)
 		} else {
-			src += "  " + bName + "." + b
+			src += bName + "." + b
 		}
 
 		src += "\n"

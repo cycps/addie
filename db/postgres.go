@@ -1912,8 +1912,9 @@ func CreatePhyo(p addie.Phyo, owner string) (int, error) {
 		return key, readFailure(err)
 	}
 
-	q := fmt.Sprintf("INSERT INTO phyos (id, position_id, model_id, args) "+
-		"values (%d, %d, %d, '%s')", key, pos_key, mdl_key, pgMathStr(p.Args))
+	q := fmt.Sprintf("INSERT INTO phyos (id, position_id, model_id, args, init) "+
+		"values (%d, %d, %d, '%s', '%s')",
+		key, pos_key, mdl_key, pgMathStr(p.Args), pgMathStr(p.Init))
 
 	err = runC(q)
 	if err != nil {
@@ -1956,8 +1957,9 @@ func UpdatePhyo(oid addie.Id, p addie.Phyo, owner string) (int, error) {
 		return key, readFailure(err)
 	}
 
-	q = fmt.Sprintf("UPDATE phyos SET args = '%s', model_id= %d WHERE id = %d",
-		pgMathStr(p.Args), mdl_key, key)
+	q = fmt.Sprintf(
+		"UPDATE phyos SET args = '%s', init = '%s', model_id= %d WHERE id = %d",
+		pgMathStr(p.Args), pgMathStr(p.Init), mdl_key, key)
 
 	err = runC(q)
 	if err != nil {
@@ -1975,7 +1977,7 @@ func ReadPhyoByKey(key int) (*addie.Phyo, error) {
 		return nil, readFailure(err)
 	}
 
-	q := fmt.Sprintf("SELECT args, model_id, position_id FROM phyos WHERE id = %d",
+	q := fmt.Sprintf("SELECT args, init, model_id, position_id FROM phyos WHERE id = %d",
 		key)
 
 	rows, err := runQ(q)
@@ -1988,9 +1990,9 @@ func ReadPhyoByKey(key int) (*addie.Phyo, error) {
 		return nil, emptyReadFailure()
 	}
 
-	var args string
+	var args, init string
 	var pos_key, mdl_key int
-	err = rows.Scan(&args, &mdl_key, &pos_key)
+	err = rows.Scan(&args, &init, &mdl_key, &pos_key)
 	if err != nil {
 		return nil, scanFailure(err)
 	}
@@ -2010,6 +2012,7 @@ func ReadPhyoByKey(key int) (*addie.Phyo, error) {
 	p.Id = *id
 	p.Position = *pos
 	p.Args = args
+	p.Init = init
 	p.Model = mdl.Name
 
 	return &p, nil
