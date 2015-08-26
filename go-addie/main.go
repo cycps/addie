@@ -8,6 +8,7 @@ import (
 	"github.com/cycps/addie/db"
 	"github.com/cycps/addie/deter"
 	"github.com/cycps/addie/protocol"
+	"github.com/cycps/addie/sema"
 	"github.com/cycps/addie/sim"
 	"github.com/julienschmidt/httprouter"
 	"io/ioutil"
@@ -536,9 +537,21 @@ func compileTopDL() {
 
 func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("addie compiling design")
-	w.Write([]byte("ok"))
-	compileSim()
-	compileTopDL()
+
+	diagnostics := sema.Check(&design)
+
+	if !diagnostics.Fatal() {
+		compileSim()
+		compileTopDL()
+	}
+
+	json, err := json.Marshal(diagnostics)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(500)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(json)
 }
 
 func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
