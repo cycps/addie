@@ -138,7 +138,7 @@ func ExtractSensorData(s addie.Sax) (map[string]int, Diagnostics) {
 	var ds Diagnostics
 	result := make(map[string]int)
 
-	re, _ := regexp.Compile("([a-zA-Z_][a-zA-Z0-9_]*)\\(([0-9]*)\\)")
+	re, _ := regexp.Compile("([a-zA-Z_][a-zA-Z0-9_]*)\\(([^\\)]*)\\)")
 	ms := re.FindAllStringSubmatch(s.Sense, -1)
 
 	for _, m := range ms {
@@ -167,7 +167,7 @@ func ExtractActuatorData(s addie.Sax) (map[string]Limits, Diagnostics) {
 	result := make(map[string]Limits)
 
 	re, _ := regexp.Compile(
-		"([a-zA-Z_][a-zA-Z0-9_]*)\\(([0-9]+(?:\\.[0-9]+)?),([0-9]+(?:\\.[0-9]+)?)\\)")
+		"([a-zA-Z_][a-zA-Z0-9_]*)\\(([^,]*),([^\\)]*)\\)")
 	ms := re.FindAllStringSubmatch(strings.Replace(s.Actuate, " ", "", -1), -1)
 
 	for _, m := range ms {
