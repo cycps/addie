@@ -30,6 +30,56 @@ func compComp(c *addie.Computer) spi.Computer {
 
 }
 
+var kryCount int
+
+func simComp() spi.Computer {
+
+	var c spi.Computer
+	c.Name = fmt.Sprintf("kry%d", kryCount)
+	kryCount++
+	c.OSs = []spi.OS{spi.OS{"Ubuntu1404-64-STD", ""}}
+	c.Interfaces = append(c.Interfaces,
+		spi.Interface{
+			Name:      "eth0",
+			Substrate: "krynet",
+			Capacity:  spi.Capacity{1000.0, spi.Kind{"max"}},
+			Latency:   spi.Latency{0, spi.Kind{"max"}},
+		},
+	)
+
+	return c
+
+}
+
+func saxComp(s *addie.Sax) spi.Computer {
+
+	var c spi.Computer
+	c.Name = s.Name
+	c.OSs = []spi.OS{spi.OS{"Ubuntu1404-64-STD", ""}}
+	c.Interfaces = append(c.Interfaces,
+		spi.Interface{
+			Name:      "eth0",
+			Substrate: "krynet",
+			Capacity:  spi.Capacity{1000.0, spi.Kind{"max"}},
+			Latency:   spi.Latency{0, spi.Kind{"max"}},
+		},
+	)
+
+	for _, i := range s.Interfaces {
+		c.Interfaces = append(c.Interfaces,
+			spi.Interface{
+				Name:      i.Name,
+				Substrate: "TODO", //this gets resolved when the links get added
+				Capacity:  spi.Capacity{float64(i.Capacity), spi.Kind{"max"}},
+				Latency:   spi.Latency{float64(i.Latency), spi.Kind{"max"}},
+			},
+		)
+	}
+
+	return c
+
+}
+
 func rtrComp(r *addie.Router) spi.Computer {
 
 	var c spi.Computer
@@ -59,6 +109,17 @@ func swSubstrate(sw *addie.Switch) spi.Substrate {
 	ss.Latency = spi.Latency{float64(sw.Latency), spi.Kind{"max"}}
 
 	return ss
+
+}
+
+func krySubstrate() spi.Substrate {
+
+	var ks spi.Substrate
+	ks.Name = "krynet"
+	ks.Capacity = spi.Capacity{float64(10000.0), spi.Kind{"max"}}
+	ks.Latency = spi.Latency{float64(0.0), spi.Kind{"max"}}
+
+	return ks
 
 }
 
@@ -94,6 +155,10 @@ func updateEndpoint(ssName string, ifr addie.NetIfRef, dsg *addie.Design,
 		r := e.(addie.Router)
 		updateIfxSubstrate(ifr.IfName, ssName, cMap[r.Id])
 
+	case addie.Sax:
+		s := e.(addie.Sax)
+		updateIfxSubstrate(ifr.IfName, ssName, cMap[s.Id])
+
 	default:
 		log.Printf("p2p link '%s' references illegal element '%v'", ssName, ifr.Id)
 	}
@@ -126,8 +191,8 @@ func linkSubstrate(link *addie.Link, dsg *addie.Design,
 	ta := reflect.TypeOf(a).Name()
 	tb := reflect.TypeOf(b).Name()
 
-	taIsHost := ta == "Computer" || ta == "Router"
-	tbIsHost := tb == "Computer" || tb == "Router"
+	taIsHost := ta == "Computer" || ta == "Router" || ta == "Sax"
+	tbIsHost := tb == "Computer" || tb == "Router" || tb == "Sax"
 
 	if taIsHost && tbIsHost {
 		updateEndpoint(link.Name, link.Endpoints[0], dsg, xp, cMap)
@@ -164,6 +229,12 @@ func DesignTopDL(dsg *addie.Design) spi.Experiment {
 			cMap[c.Id] = &_c
 			xp.Elements.Elements = append(xp.Elements.Elements, _c)
 
+		case addie.Sax:
+			s := e.(addie.Sax)
+			c := saxComp(&s)
+			cMap[s.Id] = &c
+			xp.Elements.Elements = append(xp.Elements.Elements, c)
+
 		case addie.Switch:
 			sw := e.(addie.Switch)
 			ss := swSubstrate(&sw)
@@ -182,6 +253,8 @@ func DesignTopDL(dsg *addie.Design) spi.Experiment {
 		}
 
 	}
+
+	xp.Substrates = append(xp.Substrates, krySubstrate())
 
 	for _, l := range links {
 		_l := linkSubstrate(l, dsg, &xp, cMap, sMap)

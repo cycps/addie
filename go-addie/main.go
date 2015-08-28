@@ -554,8 +554,9 @@ func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.Write(json)
 }
 
-func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	log.Println("addie running experiment")
+func runSim() {
+
+	log.Println("addie running simulation")
 
 	cmd := exec.Command("./rcomp0",
 		strconv.FormatFloat(simSettings.Begin, 'e', -1, 64),
@@ -568,13 +569,28 @@ func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		log.Println(err)
 	}
 
+}
+
+func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	log.Println("addie running experiment")
+
+	//runSim()
+
+	w.Write([]byte("ok"))
+}
+
+func onMaterialize(w http.ResponseWriter, r *http.Request,
+	ps httprouter.Params) {
+	log.Println("addie materializing experiment")
+
 	w.Write([]byte("ok"))
 }
 
 func onRawData(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("getting raw data")
 
-	data, err := ioutil.ReadFile(userDir() + "/" + design.Name + ".cypk/cnode0.results")
+	data, err := ioutil.ReadFile(userDir() + "/" + design.Name +
+		".cypk/cnode0.results")
 	if err != nil {
 		log.Println("could not read results")
 		log.Println(err)
@@ -592,6 +608,7 @@ func listen() {
 	router.GET("/"+design.Name+"/design/read", onRead)
 	router.GET("/"+design.Name+"/design/compile", onCompile)
 	router.GET("/"+design.Name+"/design/run", onRun)
+	router.GET("/"+design.Name+"/design/materialize", onMaterialize)
 	router.GET("/"+design.Name+"/analyze/rawData", onRawData)
 
 	err := doRead()
