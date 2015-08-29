@@ -6,7 +6,9 @@ import (
 	"github.com/cycps/addie"
 	"github.com/cycps/addie/db"
 	"github.com/cycps/addie/protocol"
+	"github.com/deter-project/go-spi/spi"
 	"github.com/julienschmidt/httprouter"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -98,6 +100,15 @@ func onLogin(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	}
 	userCookies[cookie.Value] = u
 	http.SetCookie(w, cookie)
+
+	//log into the DeterLab SPI
+	cert, err := spi.Login(u, p)
+	if err != nil {
+		log.Println("Unable to login to Deter")
+		log.Println(err)
+		w.WriteHeader(401) //unauthorized
+	}
+	ioutil.WriteFile("/cypress/"+u+"/spi.cert", cert, 0644)
 
 	log.Printf("user login success: '%s'", u)
 

@@ -271,7 +271,7 @@ func CreateDeterXP(user string, dsg *addie.Design) error {
 	xp := DesignTopDL(dsg)
 
 	//create a session with the DeterLab SPI
-	err := spi.Login("deterboss", "muffins")
+	_, err := spi.Login("deterboss", "muffins")
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("unable to login as deterboss")

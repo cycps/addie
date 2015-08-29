@@ -10,6 +10,7 @@ import (
 	"github.com/cycps/addie/protocol"
 	"github.com/cycps/addie/sema"
 	"github.com/cycps/addie/sim"
+	"github.com/deter-project/go-spi/spi"
 	"github.com/julienschmidt/httprouter"
 	"io/ioutil"
 	"log"
@@ -28,16 +29,40 @@ var user = ""
 
 func main() {
 
+	user = os.Args[1]
+
 	if len(os.Args) != 3 {
 		fmt.Fprintf(os.Stderr, "usage: go-addie <user id> <design id>\n")
 		os.Exit(1)
 	}
+	err := loadSpiCert()
+	if err != nil {
+		log.Println("could not load spi cert!")
+		os.Exit(1)
+	}
 
 	loadDesign(os.Args[2])
-	user = os.Args[1]
 	checkUserDir()
 	loadUserModels()
 	listen()
+}
+
+func loadSpiCert() error {
+
+	cert, err := ioutil.ReadFile("/cypress/" + user + "/spi.cert")
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("spi cert read failure")
+	}
+
+	err = spi.SetCertificate(cert)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("failed to set go-spi session cert")
+	}
+
+	return nil
+
 }
 
 func checkUserDir() {
@@ -582,6 +607,29 @@ func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 func onMaterialize(w http.ResponseWriter, r *http.Request,
 	ps httprouter.Params) {
 	log.Println("addie materializing experiment")
+
+	topDL, err := ioutil.ReadFile(topdlFileName())
+	if err != nil {
+		log.Println("unable to read topdl file :" + topdlFileName())
+		w.WriteHeader(500)
+		return
+	}
+
+	spi.Debug = true
+	response, err := spi.CreateExperiment(user+":"+design.Name, user, string(topDL))
+	if err != nil {
+		log.Println("spi call to create experiment failed")
+		log.Println(err)
+		w.WriteHeader(500)
+		spi.Debug = false
+		return
+	}
+	spi.Debug = false
+	if response.Return != true {
+		log.Println("the badness happend with the spi call to create experiment")
+		w.WriteHeader(500)
+		return
+	}
 
 	w.Write([]byte("ok"))
 }
