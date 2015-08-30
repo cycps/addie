@@ -615,7 +615,7 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	spi.Debug = true
+	//spi.Debug = true
 
 	// Get active realizations
 	log.Println("getting active realizations")

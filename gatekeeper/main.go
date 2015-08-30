@@ -108,7 +108,9 @@ func onLogin(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		log.Println(err)
 		w.WriteHeader(401) //unauthorized
 	}
-	ioutil.WriteFile("/cypress/"+u+"/spi.cert", cert, 0644)
+	if string(cert) != "" {
+		ioutil.WriteFile("/cypress/"+u+"/spi.cert", cert, 0644)
+	}
 
 	log.Printf("user login success: '%s'", u)
 
