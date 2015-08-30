@@ -616,6 +616,68 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 	}
 
 	spi.Debug = true
+
+	// Get active realizations
+	log.Println("getting active realizations")
+	grresponse, err := spi.ViewRealizations(user, ".*")
+	if err != nil {
+		log.Println("spi call to get realizations failed")
+		log.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	log.Println("--------------------------------------------------")
+	for _, rz := range grresponse.Return {
+		log.Println(rz)
+	}
+	log.Println("--------------------------------------------------")
+
+	//-- Release
+	log.Println("releasing realization")
+	rlresponse, err := spi.ReleaseRealization(user + ":" + design.Name + "-SPIdev:SPIdev")
+	if err != nil {
+		log.Println("spi call to release realization failed")
+		log.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+	if rlresponse.Return != true {
+		log.Println("the badness happened with the spi call to release realization")
+		w.WriteHeader(500)
+		return
+	}
+
+	log.Println("removing realization")
+	rrresponse, err := spi.RemoveRealization(user + ":" + design.Name + "-SPIdev:SPIdev")
+	if err != nil {
+		log.Println("spi call to remove realization failed")
+		log.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+	if rrresponse.Return != true {
+		log.Println("the badness happened with the spi call to remove realization")
+		w.WriteHeader(500)
+		return
+	}
+
+	log.Println("removing experiment")
+	rresponse, err := spi.RemoveExperiment(user + ":" + design.Name)
+	if err != nil {
+		log.Println("spi call to remove experiment failed")
+		log.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+	if rresponse.Return != true {
+		log.Println("the badness happened with the spi call to remove experiment")
+		w.WriteHeader(500)
+		return
+	}
+
+	//++ Create
+	log.Println("creating experiment")
 	response, err := spi.CreateExperiment(user+":"+design.Name, user, string(topDL))
 	if err != nil {
 		log.Println("spi call to create experiment failed")
@@ -624,12 +686,27 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 		spi.Debug = false
 		return
 	}
-	spi.Debug = false
-	if response.Return != true {
+	if response != nil && response.Return != true {
 		log.Println("the badness happend with the spi call to create experiment")
 		w.WriteHeader(500)
 		return
 	}
+
+	//~~ Realize
+	log.Println("realizing experiment")
+	mresponse, err := spi.RealizeExperiment(user+":"+design.Name, "SPIdev:SPIdev", user)
+	if err != nil {
+		log.Println("spi call to realize experiment failed")
+		log.Println(err)
+		w.WriteHeader(500)
+		spi.Debug = false
+		return
+	}
+
+	log.Println("realization response")
+	log.Println(mresponse.Return)
+
+	spi.Debug = false
 
 	w.Write([]byte("ok"))
 }

@@ -254,6 +254,7 @@ func DesignTopDL(dsg *addie.Design) spi.Experiment {
 
 	}
 
+	xp.Elements.Elements = append(xp.Elements.Elements, simComp())
 	xp.Substrates = append(xp.Substrates, krySubstrate())
 
 	for _, l := range links {
