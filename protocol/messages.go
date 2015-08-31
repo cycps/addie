@@ -24,8 +24,13 @@ type Update struct {
 	Models   []ModelUpdate
 }
 
+type ElementDelete struct {
+	Type    string          `json:"type"`
+	Element json.RawMessage `json:"element"`
+}
+
 type Delete struct {
-	Elements []addie.Id
+	Elements []ElementDelete
 }
 
 type NewXP struct {

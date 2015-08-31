@@ -392,9 +392,110 @@ func onUpdate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 }
 
+//TODO: as it sits, this function relies on the client to provide a consistent
+//set of elements to delete, so we are garbage in garbage out essentially. This
+//is probably not a good policy. For example if a client deletes a bunch of nodes
+//but not the links that they are connected to, meyham will follow.
 func onDelete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	log.Println("addie got delete request")
 
-	//TODO thundermuffin
+	msg := new(protocol.Delete)
+	err := protocol.Unpack(r, msg)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	nodes := make(map[addie.Id]addie.Identify)
+	links := make(map[addie.Id]addie.Link)
+	plinks := make(map[addie.Id]addie.Plink)
+
+	for _, d := range msg.Elements {
+
+		switch d.Type {
+		case "Computer":
+			var c addie.Computer
+			err := json.Unmarshal(d.Element, &c)
+			if err != nil {
+				log.Println("unable to unmarshal " + d.Type)
+			}
+			log.Printf("deleting %s %v", d.Type, c.Id)
+			nodes[c.Id] = c
+		case "Router":
+			var r addie.Router
+			err := json.Unmarshal(d.Element, &r)
+			if err != nil {
+				log.Println("unable to unmarshal " + d.Type)
+			}
+			log.Printf("deleting %s %v", d.Type, r.Id)
+			nodes[r.Id] = r
+		case "Switch":
+			var s addie.Switch
+			err := json.Unmarshal(d.Element, &s)
+			if err != nil {
+				log.Println("unable to unmarshal " + d.Type)
+			}
+			log.Printf("deleting %s %v", d.Type, s.Id)
+			nodes[s.Id] = s
+		case "Sax":
+			var s addie.Sax
+			err := json.Unmarshal(d.Element, &s)
+			if err != nil {
+				log.Println("unable to unmarshal " + d.Type)
+			}
+			log.Printf("deleting %s %v", d.Type, s.Id)
+			nodes[s.Id] = s
+		case "Phyo":
+			var p addie.Phyo
+			err := json.Unmarshal(d.Element, &p)
+			if err != nil {
+				log.Println("unable to unmarshal " + d.Type)
+			}
+			log.Printf("deleting %s %v", d.Type, p.Id)
+			nodes[p.Id] = p
+		case "Link":
+			var l addie.Link
+			err := json.Unmarshal(d.Element, &l)
+			if err != nil {
+				log.Println("unable to unmarshal " + d.Type)
+			}
+			log.Printf("deleting %s %v", d.Type, l.Id)
+			links[l.Id] = l
+		case "Plink":
+			var p addie.Plink
+			err := json.Unmarshal(d.Element, &p)
+			if err != nil {
+				log.Println("unable to unmarshal " + d.Type)
+			}
+			log.Printf("deleting %s %v", d.Type, p.Id)
+			plinks[p.Id] = p
+		}
+
+	}
+
+	for _, n := range nodes {
+
+		db.DeleteId(n.Identify(), user)
+		delete(design.Elements, n.Identify())
+
+	}
+
+	for _, l := range links {
+
+		db.DeleteId(l.Identify(), user)
+		db.DeleteInterface(l.Endpoints[0], user)
+		db.DeleteInterface(l.Endpoints[1], user)
+		//todo kill the interface on the in-memory model
+		delete(design.Elements, l.Identify())
+
+	}
+
+	for _, p := range plinks {
+
+		db.DeleteId(p.Id, user)
+		delete(design.Elements, p.Id)
+
+	}
 
 }
 
@@ -730,6 +831,7 @@ func listen() {
 
 	router := httprouter.New()
 	router.POST("/"+design.Name+"/design/update", onUpdate)
+	router.POST("/"+design.Name+"/design/delete", onDelete)
 	router.GET("/"+design.Name+"/design/read", onRead)
 	router.GET("/"+design.Name+"/design/compile", onCompile)
 	router.GET("/"+design.Name+"/design/run", onRun)

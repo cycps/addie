@@ -676,6 +676,28 @@ func ReadId(id int) (*addie.Id, error) {
 
 }
 
+func DeleteId(id addie.Id, owner string) error {
+
+	q := fmt.Sprintf(
+		"DELETE FROM ids "+
+			"USING systems, designs, users "+
+			"WHERE ids.sys_id = systems.id "+
+			"AND systems.design_id = designs.id "+
+			"AND designs.owner = users.id "+
+			"AND ids.name = '%s' "+
+			"AND systems.name = '%s' "+
+			"AND designs.name = '%s' "+
+			"AND users.name = '%s'", id.Name, id.Sys, id.Design, owner)
+
+	err := runC(q)
+	if err != nil {
+		return deleteFailure(err)
+	}
+
+	return nil
+
+}
+
 /*
 UpdateID updates an id. If the system in the new id does not exist it is created.
 Changing design is not supported through this interface
@@ -866,6 +888,31 @@ func ReadHostInterfaces(host_id int) (*map[string]addie.Interface, error) {
 	}
 
 	return &result, nil
+}
+
+//TODO leaking packet conductors in DB
+func DeleteInterface(ir addie.NetIfRef, user string) error {
+
+	q := fmt.Sprintf(
+		"DELETE FROM interfaces "+
+			"USING ids, systems, designs, users "+
+			"WHERE interfaces.host_id = ids.id "+
+			"AND ids.name = '%s' "+
+			"AND ids.sys_id = systems.id "+
+			"AND systems.name = '%s' "+
+			"AND systems.design_id = designs.id "+
+			"AND designs.name = '%s' "+
+			"AND designs.owner = users.id "+
+			"AND users.name = '%s' "+
+			"AND interfaces.name = '%s'", ir.Id.Name, ir.Id.Sys, ir.Id.Design, ir.IfName)
+
+	err := runC(q)
+	if err != nil {
+		return deleteFailure(err)
+	}
+
+	return nil
+
 }
 
 // Network Hosts ---------------------------------------------------------------------

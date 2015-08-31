@@ -108,6 +108,8 @@ func onLogin(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		log.Println(err)
 		w.WriteHeader(401) //unauthorized
 	}
+	//if the cert is empty that means we are already logged in and the existing
+	//cert file should be fine
 	if string(cert) != "" {
 		ioutil.WriteFile("/cypress/"+u+"/spi.cert", cert, 0644)
 	}
