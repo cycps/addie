@@ -735,17 +735,20 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 	log.Println("--------------------------------------------------")
 
 	//-- Release
+	spi.Debug = true
 	log.Println("releasing realization")
 	rlresponse, err := spi.ReleaseRealization(user + ":" + design.Name + "-SPIdev:SPIdev")
 	if err != nil {
 		log.Println("spi call to release realization failed")
 		log.Println(err)
 		w.WriteHeader(500)
+		spi.Debug = false
 		return
 	}
 	if rlresponse.Return != true {
 		log.Println("the badness happened with the spi call to release realization")
 		w.WriteHeader(500)
+		spi.Debug = false
 		return
 	}
 
@@ -755,11 +758,13 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 		log.Println("spi call to remove realization failed")
 		log.Println(err)
 		w.WriteHeader(500)
+		spi.Debug = false
 		return
 	}
 	if rrresponse.Return != true {
 		log.Println("the badness happened with the spi call to remove realization")
 		w.WriteHeader(500)
+		spi.Debug = false
 		return
 	}
 
@@ -774,6 +779,7 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 	if rresponse.Return != true {
 		log.Println("the badness happened with the spi call to remove experiment")
 		w.WriteHeader(500)
+		spi.Debug = false
 		return
 	}
 
