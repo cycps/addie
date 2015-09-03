@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 var design addie.Design
@@ -26,6 +27,7 @@ var userModels = make(map[string]addie.Model)
 var simSettings addie.SimSettings
 var cypdir = os.ExpandEnv("$HOME/.cypress")
 var user = ""
+var kryClusterSize = 1
 
 func main() {
 
@@ -501,9 +503,7 @@ func onDelete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 func onRead(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
-	//log.Println(design)
 	json, err := modelJson()
-	//log.Println(string(json))
 
 	if err != nil {
 		log.Println("modelJson failed")
@@ -702,6 +702,40 @@ func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	//runSim()
 
+	for _, e := range design.Elements {
+		switch e.(type) {
+		case addie.Computer:
+			c := e.(addie.Computer)
+			args := strings.Split(strings.TrimPrefix(c.SSHC(user, design.Name), "ssh"), " ")
+			args = append(args, []string{"touch", "addieWasHere"}...)
+			log.Printf("%s: %s", c.Name, c.SSHC(user, design.Name))
+			log.Println(args[1:])
+			log.Println(len(args[1:]))
+
+			cmd := exec.Command("ssh", args[1:]...)
+			err := cmd.Run()
+			if err != nil {
+				log.Println("addie could not touch " + c.Name)
+				log.Println(err)
+			}
+
+		case addie.Router:
+			r := e.(addie.Router)
+			log.Printf("%s: %s", r.Name, r.SSHC(user, design.Name))
+		case addie.Sax:
+			s := e.(addie.Sax)
+			log.Printf("%s: %s", s.Name, s.SSHC(user, design.Name))
+		}
+	}
+
+	for i := 0; i < kryClusterSize; i++ {
+
+		ksshc := fmt.Sprintf("ssh -A -t %s@users.isi.deterlab.net ssh -A kry%d.%s-%s.SPIdev",
+			user, i, user, design.Name)
+
+		log.Printf("kry%d: %s", i, ksshc)
+	}
+
 	w.Write([]byte("ok"))
 }
 
@@ -818,6 +852,29 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 	w.Write([]byte("ok"))
 }
 
+func onMstate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	log.Println("addie fetching materialization state")
+
+	ms, err := spi.ViewRealizations(user, ".*"+design.Name+".*")
+	if err != nil {
+		log.Println("spi call to get realizations failed")
+		log.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+
+	json, err := json.Marshal(ms.Return[0])
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(json)
+
+}
+
 func onRawData(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("getting raw data")
 
@@ -842,6 +899,7 @@ func listen() {
 	router.GET("/"+design.Name+"/design/compile", onCompile)
 	router.GET("/"+design.Name+"/design/run", onRun)
 	router.GET("/"+design.Name+"/design/materialize", onMaterialize)
+	router.GET("/"+design.Name+"/design/mstate", onMstate)
 	router.GET("/"+design.Name+"/analyze/rawData", onRawData)
 
 	err := doRead()

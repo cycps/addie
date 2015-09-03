@@ -58,7 +58,7 @@ type Computer struct {
 	NetHost
 	Position     Position `json:"position"`
 	OS           string   `json:"os"`
-	Start_script string   `start_script:"start_script"`
+	Start_script string   `json:"start_script"`
 }
 
 func (c Computer) Identify() Id { return c.Id }
@@ -70,6 +70,12 @@ func (c *Computer) Equals(x *Computer) bool {
 		c.OS == x.OS &&
 		c.Start_script == x.Start_script
 
+}
+
+func (c *Computer) SSHC(user, dsg string) string {
+	cmd := "ssh -A -t " + user + "@users.isi.deterlab.net " +
+		"ssh -A " + c.Name + "." + user + "-" + dsg + ".SPIdev"
+	return cmd
 }
 
 type PacketConductor struct {
@@ -97,6 +103,12 @@ type Router struct {
 	NetHost
 	PacketConductor
 	Position Position `json:"position"`
+}
+
+func (r *Router) SSHC(user, dsg string) string {
+	cmd := "ssh -A -t " + user + "@users.isi.deterlab.net " +
+		"ssh -A " + r.Name + "." + user + "-" + dsg + ".SPIdev"
+	return cmd
 }
 
 func (r Router) Identify() Id { return r.Id }
@@ -195,6 +207,12 @@ type Sax struct {
 }
 
 func (s Sax) Identify() Id { return s.Id }
+
+func (s *Sax) SSHC(user, dsg string) string {
+	cmd := "ssh -A -t " + user + "@users.isi.deterlab.net " +
+		"ssh -A " + s.Name + "." + user + "-" + dsg + ".SPIdev"
+	return cmd
+}
 
 type Design struct {
 	Name     string          `json:"name"`

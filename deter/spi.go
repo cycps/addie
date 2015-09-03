@@ -14,6 +14,10 @@ func compComp(c *addie.Computer) spi.Computer {
 	var _c spi.Computer
 	_c.Name = c.Name
 	_c.OSs = []spi.OS{spi.OS{c.OS, ""}}
+	_c.Attributes = []spi.Attributes{
+		spi.Attribute{"containers:openvz_template", "ubuntu-12.04-x86_64"},
+		spi.Attribute{"osid", "Ubuntu1404-64-STD"},
+	}
 
 	for _, i := range c.Interfaces {
 		_c.Interfaces = append(_c.Interfaces,
