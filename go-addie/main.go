@@ -884,6 +884,28 @@ func onMstate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 func onModelIco(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	log.Println("addie receiving model icon")
+	err := r.ParseMultipartForm(50 * 1024 * 1024)
+	if err != nil {
+		log.Println("parse form failed")
+		log.Println(err)
+	}
+	log.Printf("model: %s", r.MultipartForm.Value["modelName"][0])
+	log.Printf("file: %s", r.MultipartForm.File["modelIco"][0].Filename)
+
+	f, err := r.MultipartForm.File["modelIco"][0].Open()
+	if err != nil {
+		log.Println("error opening icon file")
+		log.Println(err)
+	}
+
+	content, err := ioutil.ReadAll(f)
+	if err != nil {
+		log.Println("could not read file")
+		log.Println(err)
+	}
+
+	log.Printf("icon file size: %d", len(content))
+	//log.Println(r.MultipartForm)
 
 }
 
