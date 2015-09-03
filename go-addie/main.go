@@ -730,7 +730,7 @@ func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	for i := 0; i < kryClusterSize; i++ {
 
-		ksshc := fmt.Sprintf("ssh -A -t %s@users.isi.deterlab.net ssh -A kry%d.%s-%s.SPIdev",
+		ksshc := fmt.Sprintf("ssh -A -t %s@users.isi.deterlab.net ssh -A kry%d.%s-%s.cypress",
 			user, i, user, design.Name)
 
 		log.Printf("kry%d: %s", i, ksshc)
@@ -771,7 +771,7 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 	//-- Release
 	spi.Debug = true
 	log.Println("releasing realization")
-	rlresponse, err := spi.ReleaseRealization(user + ":" + design.Name + "-SPIdev:SPIdev")
+	rlresponse, err := spi.ReleaseRealization(user + ":" + design.Name + "-cypress:cypress")
 	if err != nil {
 		log.Println("spi call to release realization failed")
 		log.Println(err)
@@ -787,7 +787,7 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 	}
 
 	log.Println("removing realization")
-	rrresponse, err := spi.RemoveRealization(user + ":" + design.Name + "-SPIdev:SPIdev")
+	rrresponse, err := spi.RemoveRealization(user + ":" + design.Name + "-cypress:cypress")
 	if err != nil {
 		log.Println("spi call to remove realization failed")
 		log.Println(err)
@@ -835,7 +835,7 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 
 	//~~ Realize
 	log.Println("realizing experiment")
-	mresponse, err := spi.RealizeExperiment(user+":"+design.Name, "SPIdev:SPIdev", user)
+	mresponse, err := spi.RealizeExperiment(user+":"+design.Name, "cypress:cypress", user)
 	if err != nil {
 		log.Println("spi call to realize experiment failed")
 		log.Println(err)
@@ -864,14 +864,20 @@ func onMstate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
-	json, err := json.Marshal(ms.Return[0])
+	var js []byte
+	if len(ms.Return) > 0 {
+		js, err = json.Marshal(ms.Return[0])
+	} else {
+		js = []byte("[]")
+	}
+
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(json)
+	w.Write(js)
 
 }
 

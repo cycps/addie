@@ -23,6 +23,10 @@ func compComp(c *addie.Computer) spi.Computer {
 			Attribute: "osid",
 			Value:     "Ubuntu1404-64-STD",
 		},
+		spi.TopDLAttribute{
+			Attribute: "startup",
+			Value:     c.Start_script,
+		},
 	}
 
 	for _, i := range c.Interfaces {
@@ -48,6 +52,21 @@ func simComp() spi.Computer {
 	c.Name = fmt.Sprintf("kry%d", kryCount)
 	kryCount++
 	c.OSs = []spi.OS{spi.OS{Name: "Ubuntu1404-64-STD", Version: ""}}
+	c.Attributes = []spi.TopDLAttribute{
+		spi.TopDLAttribute{
+			Attribute: "containers:openvz_template",
+			Value:     "ubuntu-12.04-x86_64",
+		},
+		spi.TopDLAttribute{
+			Attribute: "osid",
+			Value:     "Ubuntu1404-64-STD",
+		},
+		spi.TopDLAttribute{
+			Attribute: "startup",
+			Value:     "sim_init",
+		},
+	}
+
 	c.Interfaces = append(c.Interfaces,
 		spi.Interface{
 			Name:      "eth0",
@@ -66,6 +85,21 @@ func saxComp(s *addie.Sax) spi.Computer {
 	var c spi.Computer
 	c.Name = s.Name
 	c.OSs = []spi.OS{spi.OS{Name: "Ubuntu1404-64-STD", Version: ""}}
+	c.Attributes = []spi.TopDLAttribute{
+		spi.TopDLAttribute{
+			Attribute: "containers:openvz_template",
+			Value:     "ubuntu-12.04-x86_64",
+		},
+		spi.TopDLAttribute{
+			Attribute: "osid",
+			Value:     "Ubuntu1404-64-STD",
+		},
+		spi.TopDLAttribute{
+			Attribute: "startup",
+			Value:     "sax_init",
+		},
+	}
+
 	c.Interfaces = append(c.Interfaces,
 		spi.Interface{
 			Name:      "eth0",
@@ -95,6 +129,20 @@ func rtrComp(r *addie.Router) spi.Computer {
 	var c spi.Computer
 	c.Name = r.Name
 	c.OSs = []spi.OS{spi.OS{Name: "Ubuntu Click", Version: "Router"}}
+	c.Attributes = []spi.TopDLAttribute{
+		spi.TopDLAttribute{
+			Attribute: "containers:openvz_template",
+			Value:     "ubuntu-12.04-x86_64",
+		},
+		spi.TopDLAttribute{
+			Attribute: "osid",
+			Value:     "Ubuntu1404-64-STD",
+		},
+		spi.TopDLAttribute{
+			Attribute: "startup",
+			Value:     "router_init",
+		},
+	}
 
 	for _, i := range r.Interfaces {
 		c.Interfaces = append(c.Interfaces,

@@ -74,7 +74,7 @@ func (c *Computer) Equals(x *Computer) bool {
 
 func (c *Computer) SSHC(user, dsg string) string {
 	cmd := "ssh -A -t " + user + "@users.isi.deterlab.net " +
-		"ssh -A " + c.Name + "." + user + "-" + dsg + ".SPIdev"
+		"ssh -A " + c.Name + "." + user + "-" + dsg + ".cypress"
 	return cmd
 }
 
@@ -107,7 +107,7 @@ type Router struct {
 
 func (r *Router) SSHC(user, dsg string) string {
 	cmd := "ssh -A -t " + user + "@users.isi.deterlab.net " +
-		"ssh -A " + r.Name + "." + user + "-" + dsg + ".SPIdev"
+		"ssh -A " + r.Name + "." + user + "-" + dsg + ".cypress"
 	return cmd
 }
 
@@ -210,7 +210,7 @@ func (s Sax) Identify() Id { return s.Id }
 
 func (s *Sax) SSHC(user, dsg string) string {
 	cmd := "ssh -A -t " + user + "@users.isi.deterlab.net " +
-		"ssh -A " + s.Name + "." + user + "-" + dsg + ".SPIdev"
+		"ssh -A " + s.Name + "." + user + "-" + dsg + ".cypress"
 	return cmd
 }
 
