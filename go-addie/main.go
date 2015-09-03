@@ -881,6 +881,12 @@ func onMstate(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 }
 
+func onModelIco(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	log.Println("addie receiving model icon")
+
+}
+
 func onRawData(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("getting raw data")
 
@@ -905,6 +911,7 @@ func listen() {
 	router.GET("/"+design.Name+"/design/compile", onCompile)
 	router.GET("/"+design.Name+"/design/run", onRun)
 	router.GET("/"+design.Name+"/design/materialize", onMaterialize)
+	router.POST("/"+design.Name+"/design/modelIco", onModelIco)
 	router.GET("/"+design.Name+"/design/mstate", onMstate)
 	router.GET("/"+design.Name+"/analyze/rawData", onRawData)
 
