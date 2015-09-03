@@ -13,10 +13,16 @@ func compComp(c *addie.Computer) spi.Computer {
 
 	var _c spi.Computer
 	_c.Name = c.Name
-	_c.OSs = []spi.OS{spi.OS{c.OS, ""}}
-	_c.Attributes = []spi.Attributes{
-		spi.Attribute{"containers:openvz_template", "ubuntu-12.04-x86_64"},
-		spi.Attribute{"osid", "Ubuntu1404-64-STD"},
+	_c.OSs = []spi.OS{spi.OS{Name: c.OS, Version: ""}}
+	_c.Attributes = []spi.TopDLAttribute{
+		spi.TopDLAttribute{
+			Attribute: "containers:openvz_template",
+			Value:     "ubuntu-12.04-x86_64",
+		},
+		spi.TopDLAttribute{
+			Attribute: "osid",
+			Value:     "Ubuntu1404-64-STD",
+		},
 	}
 
 	for _, i := range c.Interfaces {
@@ -41,7 +47,7 @@ func simComp() spi.Computer {
 	var c spi.Computer
 	c.Name = fmt.Sprintf("kry%d", kryCount)
 	kryCount++
-	c.OSs = []spi.OS{spi.OS{"Ubuntu1404-64-STD", ""}}
+	c.OSs = []spi.OS{spi.OS{Name: "Ubuntu1404-64-STD", Version: ""}}
 	c.Interfaces = append(c.Interfaces,
 		spi.Interface{
 			Name:      "eth0",
@@ -59,7 +65,7 @@ func saxComp(s *addie.Sax) spi.Computer {
 
 	var c spi.Computer
 	c.Name = s.Name
-	c.OSs = []spi.OS{spi.OS{"Ubuntu1404-64-STD", ""}}
+	c.OSs = []spi.OS{spi.OS{Name: "Ubuntu1404-64-STD", Version: ""}}
 	c.Interfaces = append(c.Interfaces,
 		spi.Interface{
 			Name:      "eth0",
@@ -88,7 +94,7 @@ func rtrComp(r *addie.Router) spi.Computer {
 
 	var c spi.Computer
 	c.Name = r.Name
-	c.OSs = []spi.OS{spi.OS{"Ubuntu Click", "Router"}}
+	c.OSs = []spi.OS{spi.OS{Name: "Ubuntu Click", Version: "Router"}}
 
 	for _, i := range r.Interfaces {
 		c.Interfaces = append(c.Interfaces,
