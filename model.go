@@ -147,6 +147,7 @@ type Model struct {
 	Name      string `json:"name"`
 	Equations string `json:"equations"`
 	Params    string `json:"params"`
+	Icon      string `json:"icon"`
 }
 
 func (m Model) Identify() Id { return Id{Name: m.Name, Sys: "", Design: ""} }
