@@ -271,6 +271,8 @@ func linkSubstrate(link *addie.Link, dsg *addie.Design,
 
 func DesignTopDL(dsg *addie.Design) spi.Experiment {
 
+	kryCount = 0
+
 	var xp spi.Experiment
 
 	cMap := make(map[addie.Id]*spi.Computer)

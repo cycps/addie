@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var design addie.Design
@@ -755,6 +756,24 @@ func onDeMaterialize(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 		return
 	}
 
+	dmat := false
+	for dmat == false {
+		// check dematerialization status
+		time.Sleep(1 * time.Second)
+		log.Println("checking realization shutdown")
+		ms, err := spi.ViewRealizations(user, ".*"+design.Name+".*")
+		if err != nil {
+			log.Println("[dmat] spi call to get realizations failed")
+			log.Println(err)
+			w.WriteHeader(500)
+			return
+		}
+		if len(ms.Return) == 0 {
+			log.Println("dematerialization finished")
+			dmat = true
+		}
+	}
+
 	log.Println("removing experiment")
 	rx, err := spi.RemoveExperiment(user + ":" + design.Name)
 	if err != nil {
@@ -925,6 +944,7 @@ func listen() {
 	router.GET("/"+design.Name+"/design/compile", onCompile)
 	router.GET("/"+design.Name+"/design/run", onRun)
 	router.GET("/"+design.Name+"/design/materialize", onMaterialize)
+	router.GET("/"+design.Name+"/design/dematerialize", onDeMaterialize)
 	router.POST("/"+design.Name+"/design/modelIco", onModelIco)
 	router.GET("/"+design.Name+"/design/mstate", onMstate)
 	router.GET("/"+design.Name+"/analyze/rawData", onRawData)
