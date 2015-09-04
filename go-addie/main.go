@@ -739,6 +739,37 @@ func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	w.Write([]byte("ok"))
 }
+func onDeMaterialize(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	log.Println("dematerializing")
+	rr, err := spi.RemoveRealization(user + ":" + design.Name + "-cypress:cypress")
+	if err != nil {
+		log.Println("spi call to remove realization failed")
+		log.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+	if rr.Return != true {
+		log.Println("the badness happened with the spi call to remove realization")
+		w.WriteHeader(500)
+		return
+	}
+
+	log.Println("removing experiment")
+	rx, err := spi.RemoveExperiment(user + ":" + design.Name)
+	if err != nil {
+		log.Println("spi call to remove experiment failed")
+		log.Println(err)
+		w.WriteHeader(500)
+		return
+	}
+	if rx.Return != true {
+		log.Println("the badness happened with the spi call to remove experiment")
+		w.WriteHeader(500)
+		return
+	}
+
+}
 
 func onMaterialize(w http.ResponseWriter, r *http.Request,
 	ps httprouter.Params) {
@@ -751,70 +782,20 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	//spi.Debug = true
-
 	// Get active realizations
-	log.Println("getting active realizations")
-	grresponse, err := spi.ViewRealizations(user, ".*")
+	log.Println("checking to see if we are already materialized")
+	ms, err := spi.ViewRealizations(user, ".*"+design.Name+".*")
 	if err != nil {
 		log.Println("spi call to get realizations failed")
 		log.Println(err)
 		w.WriteHeader(500)
 		return
 	}
-
-	log.Println("--------------------------------------------------")
-	for _, rz := range grresponse.Return {
-		log.Println(rz)
-	}
-	log.Println("--------------------------------------------------")
-
-	//-- Release
-	spi.Debug = true
-	log.Println("releasing realization")
-	rlresponse, err := spi.ReleaseRealization(user + ":" + design.Name + "-cypress:cypress")
-	if err != nil {
-		log.Println("spi call to release realization failed")
-		log.Println(err)
-		w.WriteHeader(500)
-		spi.Debug = false
-		return
-	}
-	if rlresponse.Return != true {
-		log.Println("the badness happened with the spi call to release realization")
-		w.WriteHeader(500)
-		spi.Debug = false
-		return
-	}
-
-	log.Println("removing realization")
-	rrresponse, err := spi.RemoveRealization(user + ":" + design.Name + "-cypress:cypress")
-	if err != nil {
-		log.Println("spi call to remove realization failed")
-		log.Println(err)
-		w.WriteHeader(500)
-		spi.Debug = false
-		return
-	}
-	if rrresponse.Return != true {
-		log.Println("the badness happened with the spi call to remove realization")
-		w.WriteHeader(500)
-		spi.Debug = false
-		return
-	}
-
-	log.Println("removing experiment")
-	rresponse, err := spi.RemoveExperiment(user + ":" + design.Name)
-	if err != nil {
-		log.Println("spi call to remove experiment failed")
-		log.Println(err)
-		w.WriteHeader(500)
-		return
-	}
-	if rresponse.Return != true {
-		log.Println("the badness happened with the spi call to remove experiment")
-		w.WriteHeader(500)
-		spi.Debug = false
+	if len(ms.Return) > 0 {
+		msg := "the design is already materialize, de-materialize first to re-materialize"
+		log.Println(msg)
+		w.WriteHeader(400)
+		fmt.Fprintf(w, msg)
 		return
 	}
 
@@ -825,7 +806,6 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 		log.Println("spi call to create experiment failed")
 		log.Println(err)
 		w.WriteHeader(500)
-		spi.Debug = false
 		return
 	}
 	if response != nil && response.Return != true {
@@ -841,14 +821,11 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 		log.Println("spi call to realize experiment failed")
 		log.Println(err)
 		w.WriteHeader(500)
-		spi.Debug = false
 		return
 	}
 
 	log.Println("realization response")
 	log.Println(mresponse.Return)
-
-	spi.Debug = false
 
 	w.Write([]byte("ok"))
 }
