@@ -891,6 +891,7 @@ func onModelIco(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	if ok {
 		m.Icon = fn
 		userModels[mdl] = m
+		db.UpdateModel(m.Name, m, user)
 	}
 
 	log.Println("saving icon " + fn)
