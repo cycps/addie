@@ -1814,9 +1814,9 @@ func CreateModel(m addie.Model, owner string) error {
 		return readFailure(err)
 	}
 
-	q := fmt.Sprintf("INSERT INTO models (user_id, name, equations, params) "+
-		"values (%d, '%s', '%s', '%s')",
-		user_key, m.Name, pgMathStr(m.Equations), m.Params)
+	q := fmt.Sprintf("INSERT INTO models (user_id, name, equations, params, icon) "+
+		"values (%d, '%s', '%s', '%s', '%s')",
+		user_key, m.Name, pgMathStr(m.Equations), m.Params, m.Icon)
 
 	err = runC(q)
 	if err != nil {
@@ -1833,8 +1833,8 @@ func UpdateModel(oldName string, m addie.Model, owner string) error {
 		return readFailure(err)
 	}
 
-	q := fmt.Sprintf("UPDATE models SET name = '%s', equations = '%s', params = '%s' "+
-		"WHERE user_id = %d AND name = '%s'", m.Name, pgMathStr(m.Equations), m.Params,
+	q := fmt.Sprintf("UPDATE models SET name = '%s', equations = '%s', params = '%s', icon = '%s' "+
+		"WHERE user_id = %d AND name = '%s'", m.Name, pgMathStr(m.Equations), m.Params, m.Icon,
 		user_key, oldName)
 
 	err = runC(q)
@@ -1848,7 +1848,7 @@ func UpdateModel(oldName string, m addie.Model, owner string) error {
 
 func ReadModelByKey(key int) (*addie.Model, error) {
 
-	q := fmt.Sprintf("SELECT name, equations, params FROM models WHERE id = %d", key)
+	q := fmt.Sprintf("SELECT name, equations, params, icon FROM models WHERE id = %d", key)
 
 	rows, err := runQ(q)
 	defer safeClose(rows)
@@ -1859,8 +1859,8 @@ func ReadModelByKey(key int) (*addie.Model, error) {
 		return nil, emptyReadFailure()
 	}
 
-	var name, equations, params string
-	err = rows.Scan(&name, &equations, &params)
+	var name, equations, params, icon string
+	err = rows.Scan(&name, &equations, &params, &icon)
 	if err != nil {
 		return nil, scanFailure(err)
 	}
@@ -1870,6 +1870,7 @@ func ReadModelByKey(key int) (*addie.Model, error) {
 	m.Name = name
 	m.Equations = equations
 	m.Params = params
+	m.Icon = icon
 
 	return &m, nil
 
