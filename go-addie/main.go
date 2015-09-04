@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	osuser "os/user"
 	"reflect"
 	"strconv"
 	"strings"
@@ -889,7 +890,8 @@ func onModelIco(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		log.Println("parse form failed")
 		log.Println(err)
 	}
-	log.Printf("model: %s", r.MultipartForm.Value["modelName"][0])
+	mdl := r.MultipartForm.Value["modelName"][0]
+	log.Printf("model: %s", mdl)
 	log.Printf("file: %s", r.MultipartForm.File["modelIco"][0].Filename)
 
 	f, err := r.MultipartForm.File["modelIco"][0].Open()
@@ -905,6 +907,13 @@ func onModelIco(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	}
 
 	log.Printf("icon file size: %d", len(content))
+
+	u, _ := osuser.Current()
+	fn := u.HomeDir + "/.cypress/web/ico/" + user + "_" + design.Name + "_" + mdl + ".png"
+
+	log.Println("saving icon " + fn)
+	ioutil.WriteFile(fn, content, 0644)
+
 	//log.Println(r.MultipartForm)
 
 }
