@@ -909,7 +909,7 @@ func onModelIco(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Printf("icon file size: %d", len(content))
 
 	u, _ := osuser.Current()
-	fn := u.HomeDir + "/.cypress/web/ico/" + user + "_" + design.Name + "_" + mdl + ".png"
+	fn := u.HomeDir + "/.cypress/web/ico/" + user + "_" + mdl + ".png"
 	m, ok := userModels[mdl]
 	if ok {
 		m.Icon = fn
