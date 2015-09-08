@@ -699,6 +699,10 @@ func runSim() {
 
 }
 
+func runComputerCode(c addie.Computer) {
+
+}
+
 func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("addie running experiment")
 

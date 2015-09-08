@@ -128,7 +128,7 @@ func rtrComp(r *addie.Router) spi.Computer {
 
 	var c spi.Computer
 	c.Name = r.Name
-	c.OSs = []spi.OS{spi.OS{Name: "Ubuntu Click", Version: "Router"}}
+	c.OSs = []spi.OS{spi.OS{Name: "Ubuntu1404-64-STD", Version: "Router"}}
 	c.Attributes = []spi.TopDLAttribute{
 		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
