@@ -702,7 +702,13 @@ func runSim() {
 func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("addie running experiment")
 
-	//runSim()
+	//launchRouters()
+	//launchSax()
+	//launchSoftware()
+	//launchSim()
+
+	//## old ##
+	////runSim()
 
 	for _, e := range design.Elements {
 		switch e.(type) {
