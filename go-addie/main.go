@@ -666,11 +666,18 @@ func compileTopDL() {
 func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("addie compiling design")
 
+	log.Println("checking design ...")
 	diagnostics := sema.Check(&design)
+	log.Println("OK")
 
 	if !diagnostics.Fatal() {
+		log.Println("compiling PnetDL ...")
 		compileSim()
+		log.Println("OK")
+
+		log.Println("compiling TopDL ...")
 		compileTopDL()
+		log.Println("OK")
 	}
 
 	json, err := json.Marshal(diagnostics)

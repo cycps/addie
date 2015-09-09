@@ -16,8 +16,12 @@ func compComp(c *addie.Computer) spi.Computer {
 	_c.OSs = []spi.OS{spi.OS{Name: c.OS, Version: ""}}
 	_c.Attributes = []spi.TopDLAttribute{
 		spi.TopDLAttribute{
+			Attribute: "type",
+			Value:     "dl380g3",
+		},
+		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
-			Value:     "ubuntu-14.04-x86_64",
+			Value:     "ubuntu-12.04-x86_64",
 		},
 		spi.TopDLAttribute{
 			Attribute: "osid",
@@ -54,8 +58,12 @@ func simComp() spi.Computer {
 	c.OSs = []spi.OS{spi.OS{Name: "Ubuntu1404-64-STD", Version: ""}}
 	c.Attributes = []spi.TopDLAttribute{
 		spi.TopDLAttribute{
+			Attribute: "type",
+			Value:     "dl380g3",
+		},
+		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
-			Value:     "ubuntu-14.04-x86_64",
+			Value:     "ubuntu-12.04-x86_64",
 		},
 		spi.TopDLAttribute{
 			Attribute: "osid",
@@ -87,8 +95,12 @@ func saxComp(s *addie.Sax) spi.Computer {
 	c.OSs = []spi.OS{spi.OS{Name: "Ubuntu1404-64-STD", Version: ""}}
 	c.Attributes = []spi.TopDLAttribute{
 		spi.TopDLAttribute{
+			Attribute: "type",
+			Value:     "dl380g3",
+		},
+		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
-			Value:     "ubuntu-14.04-x86_64",
+			Value:     "ubuntu-12.04-x86_64",
 		},
 		spi.TopDLAttribute{
 			Attribute: "osid",
@@ -131,8 +143,12 @@ func rtrComp(r *addie.Router) spi.Computer {
 	c.OSs = []spi.OS{spi.OS{Name: "Ubuntu1404-64-STD", Version: "Router"}}
 	c.Attributes = []spi.TopDLAttribute{
 		spi.TopDLAttribute{
+			Attribute: "type",
+			Value:     "dl380g3",
+		},
+		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
-			Value:     "ubuntu-14.04-x86_64",
+			Value:     "ubuntu-12.04-x86_64",
 		},
 		spi.TopDLAttribute{
 			Attribute: "osid",
