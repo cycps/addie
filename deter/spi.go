@@ -190,7 +190,7 @@ func krySubstrate() spi.Substrate {
 
 	var ks spi.Substrate
 	ks.Name = "krynet"
-	ks.Capacity = spi.Capacity{float64(10000.0), spi.Kind{"max"}}
+	ks.Capacity = spi.Capacity{float64(1000.0), spi.Kind{"max"}}
 	ks.Latency = spi.Latency{float64(0.0), spi.Kind{"max"}}
 
 	return ks
