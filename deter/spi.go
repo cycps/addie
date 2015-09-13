@@ -21,7 +21,7 @@ func compComp(c *addie.Computer) spi.Computer {
 		},
 		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
-			Value:     "ubuntu-14.04-x86_64",
+			Value:     "ubuntu-15.04-x86_64",
 		},
 		spi.TopDLAttribute{
 			Attribute: "osid",
@@ -63,7 +63,7 @@ func simComp() spi.Computer {
 		},
 		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
-			Value:     "ubuntu-14.04-x86_64",
+			Value:     "ubuntu-15.04-x86_64",
 		},
 		spi.TopDLAttribute{
 			Attribute: "osid",
@@ -100,7 +100,7 @@ func saxComp(s *addie.Sax) spi.Computer {
 		},
 		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
-			Value:     "ubuntu-14.04-x86_64",
+			Value:     "ubuntu-15.04-x86_64",
 		},
 		spi.TopDLAttribute{
 			Attribute: "osid",
@@ -148,7 +148,7 @@ func rtrComp(r *addie.Router) spi.Computer {
 		},
 		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
-			Value:     "ubuntu-14.04-x86_64",
+			Value:     "ubuntu-15.04-x86_64",
 		},
 		spi.TopDLAttribute{
 			Attribute: "osid",
