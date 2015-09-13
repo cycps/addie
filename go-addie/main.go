@@ -837,7 +837,8 @@ func onMaterialize(w http.ResponseWriter, r *http.Request,
 
 	//++ Create
 	log.Println("creating experiment")
-	response, err := spi.CreateExperiment(user+":"+design.Name, user, string(topDL))
+	response, err := spi.CreateExperiment(user+":"+design.Name, user, string(topDL),
+		false)
 	if err != nil {
 		log.Println("spi call to create experiment failed")
 		log.Println(err)

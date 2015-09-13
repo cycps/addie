@@ -361,7 +361,7 @@ func CreateDeterXP(user string, dsg *addie.Design) error {
 	}
 
 	createResponse, err := spi.CreateExperiment(
-		user+":"+dsg.Name, "deterboss", string(topdl))
+		user+":"+dsg.Name, "deterboss", string(topdl), false)
 
 	if err != nil {
 		log.Println(err)
