@@ -38,7 +38,7 @@ func compComp(c *addie.Computer) spi.Computer {
 			spi.Interface{
 				Name:      i.Name,
 				Substrate: "TODO", //this gets resolved when the links get added
-				Capacity:  spi.Capacity{float64(i.Capacity), spi.Kind{"max"}},
+				Capacity:  spi.Capacity{float64(i.Capacity) * 1000, spi.Kind{"max"}},
 				Latency:   spi.Latency{float64(i.Latency), spi.Kind{"max"}},
 			},
 		)
@@ -79,7 +79,7 @@ func simComp() spi.Computer {
 		spi.Interface{
 			Name:      "eth0",
 			Substrate: "krynet",
-			Capacity:  spi.Capacity{1000.0, spi.Kind{"max"}},
+			Capacity:  spi.Capacity{1000.0 * 1000, spi.Kind{"max"}},
 			Latency:   spi.Latency{0, spi.Kind{"max"}},
 		},
 	)
@@ -116,7 +116,7 @@ func saxComp(s *addie.Sax) spi.Computer {
 		spi.Interface{
 			Name:      "eth0",
 			Substrate: "krynet",
-			Capacity:  spi.Capacity{1000.0, spi.Kind{"max"}},
+			Capacity:  spi.Capacity{1000.0 * 1000, spi.Kind{"max"}},
 			Latency:   spi.Latency{0, spi.Kind{"max"}},
 		},
 	)
@@ -126,7 +126,7 @@ func saxComp(s *addie.Sax) spi.Computer {
 			spi.Interface{
 				Name:      i.Name,
 				Substrate: "TODO", //this gets resolved when the links get added
-				Capacity:  spi.Capacity{float64(i.Capacity), spi.Kind{"max"}},
+				Capacity:  spi.Capacity{float64(i.Capacity) * 1000, spi.Kind{"max"}},
 				Latency:   spi.Latency{float64(i.Latency), spi.Kind{"max"}},
 			},
 		)
@@ -165,7 +165,7 @@ func rtrComp(r *addie.Router) spi.Computer {
 			spi.Interface{
 				Name:      i.Name,
 				Substrate: "TODO", //this gets resolved when the links get added
-				Capacity:  spi.Capacity{float64(i.Capacity), spi.Kind{"max"}},
+				Capacity:  spi.Capacity{float64(i.Capacity) * 1000, spi.Kind{"max"}},
 				Latency:   spi.Latency{float64(i.Latency), spi.Kind{"max"}},
 			},
 		)
@@ -179,7 +179,7 @@ func swSubstrate(sw *addie.Switch) spi.Substrate {
 
 	var ss spi.Substrate
 	ss.Name = sw.Name
-	ss.Capacity = spi.Capacity{float64(sw.Capacity), spi.Kind{"max"}}
+	ss.Capacity = spi.Capacity{float64(sw.Capacity) * 1000, spi.Kind{"max"}}
 	ss.Latency = spi.Latency{float64(sw.Latency), spi.Kind{"max"}}
 
 	return ss
@@ -190,7 +190,7 @@ func krySubstrate() spi.Substrate {
 
 	var ks spi.Substrate
 	ks.Name = "krynet"
-	ks.Capacity = spi.Capacity{float64(1000.0), spi.Kind{"max"}}
+	ks.Capacity = spi.Capacity{float64(1000.0) * 1000, spi.Kind{"max"}}
 	ks.Latency = spi.Latency{float64(0.0), spi.Kind{"max"}}
 
 	return ks
@@ -246,7 +246,7 @@ func linkSubstrate(link *addie.Link, dsg *addie.Design,
 
 	var ss spi.Substrate
 	ss.Name = link.Name
-	ss.Capacity = spi.Capacity{float64(link.Capacity), spi.Kind{"max"}}
+	ss.Capacity = spi.Capacity{float64(link.Capacity) * 1000, spi.Kind{"max"}}
 	ss.Latency = spi.Latency{float64(link.Latency), spi.Kind{"max"}}
 
 	a, ok := dsg.Elements[link.Endpoints[0].Id]
