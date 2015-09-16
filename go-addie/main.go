@@ -663,6 +663,10 @@ func compileTopDL() {
 
 }
 
+func compileDnsServerConfig() {
+
+}
+
 func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("addie compiling design")
 
@@ -677,6 +681,10 @@ func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 		log.Println("compiling TopDL ...")
 		compileTopDL()
+		log.Println("OK")
+
+		log.Println("building dns server config configs ...")
+		compileDnsServerConfig()
 		log.Println("OK")
 	}
 
