@@ -668,7 +668,7 @@ func genKey(fqdn string) string {
 	return "key"
 }
 
-func generateDnsServerConfig() {
+func generateDnsServerConfig() error {
 
 	var spec dnsc.ServerSpec
 
@@ -682,9 +682,15 @@ func generateDnsServerConfig() {
 			c := e.(addie.Computer)
 			cs := dnsc.ClientSpec{}
 			cs.FQDN = fmt.Sprintf("%s.%s.cypress.net", c.Name, design.Name)
-			cs.Key = genKey(cs.FQDN)
+			key, err := dnsc.Keygen(cs.FQDN)
+			if err != nil {
+				return err
+			}
+			cs.Key = key
 		}
 	}
+
+	return nil
 }
 
 func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
