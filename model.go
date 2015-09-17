@@ -13,6 +13,10 @@ type Id struct {
 	Design string `json:"design"`
 }
 
+func (id *Id) String() string {
+	return id.Name + "." + id.Sys + "." + id.Design
+}
+
 type Position struct {
 	X float32 `json:"x"`
 	Y float32 `json:"y"`
@@ -166,9 +170,8 @@ type Binding [2]string
 
 type Plink struct {
 	Id
-	Endpoints [2]Id `json:"endpoints"`
-	//Bindings  []Binding `json:"bindings"` //derive this after we get the bits
-	Bindings [2]string `json:"bindings"`
+	Endpoints [2]Id     `json:"endpoints"`
+	Bindings  [2]string `json:"bindings"`
 }
 
 func (p Plink) Identify() Id { return p.Id }

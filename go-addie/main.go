@@ -11,6 +11,7 @@ import (
 	"github.com/cycps/addie/sema"
 	"github.com/cycps/addie/sim"
 	"github.com/cycps/xptools/dnsc"
+	"github.com/cycps/xptools/routec"
 	"github.com/deter-project/go-spi/spi"
 	"github.com/julienschmidt/httprouter"
 	"io/ioutil"
@@ -728,7 +729,103 @@ func generateDnsServerConfig() error {
 	return nil
 }
 
-func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func switchConnections(sw addie.Switch) []addie.Id {
+
+	var xs []addie.Id
+
+	for _, e := range design.Elements {
+		switch e.(type) {
+		case addie.Link:
+			l := e.(addie.Link)
+			if l.Endpoints[0].Id == sw.Id {
+				xs = append(xs, l.Endpoints[1].Id)
+			}
+			if l.Endpoints[1].Id == sw.Id {
+				xs = append(xs, l.Endpoints[0].Id)
+			}
+		}
+	}
+
+	return xs
+}
+
+func updateCharts(charts map[string]routec.RouterChart,
+	r addie.Router, x addie.Identify) {
+
+	ch, ok := charts[r.Id.String()]
+	if !ok {
+		ch.Id = uint32(len(charts) + 1)
+	}
+
+	switch x.(type) {
+	case addie.Router:
+		r := x.(addie.Router)
+		ch.PeerHosts = append(ch.PeerHosts, r.Name)
+	case addie.Computer:
+		c := x.(addie.Computer)
+		ch.DownstreamHosts = append(ch.DownstreamHosts, c.Name)
+	case addie.Sax:
+		s := x.(addie.Sax)
+		ch.DownstreamHosts = append(ch.DownstreamHosts, s.Name)
+	case addie.Switch:
+		s := x.(addie.Switch)
+		sx := switchConnections(s)
+		for _, i := range sx {
+			if i == r.Id {
+				continue
+			}
+			ch.DownstreamHosts = append(ch.DownstreamHosts, i.Name)
+			break
+		}
+
+	}
+
+	charts[r.Id.String()] = ch
+}
+
+func generateRouterConfigs() error {
+
+	charts := make(map[string]routec.RouterChart)
+
+	for _, e := range design.Elements {
+		switch e.(type) {
+		case addie.Link:
+			l := e.(addie.Link)
+			a := design.Elements[l.Endpoints[0].Id]
+			b := design.Elements[l.Endpoints[1].Id]
+			switch a.(type) {
+			case addie.Router:
+				r := a.(addie.Router)
+				updateCharts(charts, r, b)
+			}
+			switch b.(type) {
+			case addie.Router:
+				r := b.(addie.Router)
+				updateCharts(charts, r, a)
+			}
+		}
+	}
+
+	dir := userDir() + "/" + design.Name + ".route"
+	os.MkdirAll(dir, 0755)
+	for n, c := range charts {
+		js, err := json.MarshalIndent(c, "", "  ")
+		if err != nil {
+			log.Println(err)
+			return fmt.Errorf("Failed to marshal router chart")
+		}
+		err = ioutil.WriteFile(dir+"/"+n+".rc.json", js, 0644)
+		if err != nil {
+			log.Println(err)
+			fmt.Errorf("Failed to write router chart file")
+		}
+	}
+
+	return nil
+}
+
+func onCompile(w http.ResponseWriter, r *http.Request,
+	ps httprouter.Params) {
 	log.Println("addie compiling design")
 
 	log.Println("checking design ...")
@@ -744,10 +841,18 @@ func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		compileTopDL()
 		log.Println("OK")
 
-		log.Println("building dns server config configs ...")
+		log.Println("building dns configs ...")
 		err := generateDnsServerConfig()
 		if err != nil {
 			log.Printf("Fail: %v\n", err)
+		} else {
+			log.Println("OK")
+		}
+
+		log.Println("building quagga configs ...")
+		err = generateRouterConfigs()
+		if err != nil {
+			log.Printf("fail: %v\n", err)
 		} else {
 			log.Println("OK")
 		}
