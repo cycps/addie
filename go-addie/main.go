@@ -10,6 +10,7 @@ import (
 	"github.com/cycps/addie/protocol"
 	"github.com/cycps/addie/sema"
 	"github.com/cycps/addie/sim"
+	"github.com/cycps/xptools/dnsc"
 	"github.com/deter-project/go-spi/spi"
 	"github.com/julienschmidt/httprouter"
 	"io/ioutil"
@@ -663,8 +664,27 @@ func compileTopDL() {
 
 }
 
-func compileDnsServerConfig() {
+func genKey(fqdn string) string {
+	return "key"
+}
 
+func generateDnsServerConfig() {
+
+	var spec dnsc.ServerSpec
+
+	spec.Xpname = design.Name
+	spec.FQDN = "dns." + spec.Xpname + ".cypress.net"
+	spec.Addr = "2001:cc:0:0::d47"
+
+	for _, e := range design.Elements {
+		switch e.(type) {
+		case addie.Computer:
+			c := e.(addie.Computer)
+			cs := dnsc.ClientSpec{}
+			cs.FQDN = fmt.Sprintf("%s.%s.cypress.net", c.Name, design.Name)
+			cs.Key = genKey(cs.FQDN)
+		}
+	}
 }
 
 func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -684,7 +704,7 @@ func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		log.Println("OK")
 
 		log.Println("building dns server config configs ...")
-		compileDnsServerConfig()
+		generateDnsServerConfig()
 		log.Println("OK")
 	}
 
