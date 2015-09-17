@@ -664,10 +664,6 @@ func compileTopDL() {
 
 }
 
-func genKey(fqdn string) string {
-	return "key"
-}
-
 func generateDnsServerConfig() error {
 
 	var spec dnsc.ServerSpec
@@ -687,6 +683,45 @@ func generateDnsServerConfig() error {
 				return err
 			}
 			cs.Key = key
+			spec.Clients = append(spec.Clients, cs)
+		case addie.Sax:
+			s := e.(addie.Sax)
+			cs := dnsc.ClientSpec{}
+			cs.FQDN = fmt.Sprintf("%s.%s.cypress.net", s.Name, design.Name)
+			key, err := dnsc.Keygen(cs.FQDN)
+			if err != nil {
+				return err
+			}
+			cs.Key = key
+			spec.Clients = append(spec.Clients, cs)
+		}
+	}
+
+	js, err := json.MarshalIndent(spec, "", "  ")
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Failed to marshal dns server spec")
+	}
+
+	dir := userDir() + "/" + design.Name + ".dns"
+	os.MkdirAll(dir, 0755)
+	err = ioutil.WriteFile(dir+"/server_spec.json", js, 0644)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Failed to write dns spec file")
+	}
+
+	for _, cs := range spec.Clients {
+		js, err = json.MarshalIndent(cs, "", "  ")
+		if err != nil {
+			log.Println(err)
+			return fmt.Errorf("Failed to marshal dns client spec")
+		}
+		shortname := strings.Split(cs.FQDN, ".")[0]
+		err = ioutil.WriteFile(dir+"/"+shortname+".json", js, 0644)
+		if err != nil {
+			log.Println(err)
+			return fmt.Errorf("Failed to write dns client file")
 		}
 	}
 
@@ -710,8 +745,12 @@ func onCompile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		log.Println("OK")
 
 		log.Println("building dns server config configs ...")
-		generateDnsServerConfig()
-		log.Println("OK")
+		err := generateDnsServerConfig()
+		if err != nil {
+			log.Printf("Fail: %v\n", err)
+		} else {
+			log.Println("OK")
+		}
 	}
 
 	json, err := json.Marshal(diagnostics)

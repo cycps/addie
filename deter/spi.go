@@ -21,7 +21,7 @@ func compComp(c *addie.Computer) spi.Computer {
 		},
 		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
-			Value:     "ubuntu-15.04-x86_64",
+			Value:     "ubuntu-14.04-x86_64",
 		},
 		spi.TopDLAttribute{
 			Attribute: "osid",
@@ -29,7 +29,7 @@ func compComp(c *addie.Computer) spi.Computer {
 		},
 		spi.TopDLAttribute{
 			Attribute: "startup",
-			Value:     c.Start_script,
+			Value:     "/proj/cypress/scripts/cyinit.sh",
 		},
 	}
 
@@ -63,7 +63,7 @@ func simComp() spi.Computer {
 		},
 		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
-			Value:     "ubuntu-15.04-x86_64",
+			Value:     "ubuntu-14.04-x86_64",
 		},
 		spi.TopDLAttribute{
 			Attribute: "osid",
@@ -71,7 +71,7 @@ func simComp() spi.Computer {
 		},
 		spi.TopDLAttribute{
 			Attribute: "startup",
-			Value:     "sim_init",
+			Value:     "/proj/cypress/scripts/cyinit.sh",
 		},
 	}
 
@@ -100,7 +100,7 @@ func saxComp(s *addie.Sax) spi.Computer {
 		},
 		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
-			Value:     "ubuntu-15.04-x86_64",
+			Value:     "ubuntu-14.04-x86_64",
 		},
 		spi.TopDLAttribute{
 			Attribute: "osid",
@@ -108,7 +108,7 @@ func saxComp(s *addie.Sax) spi.Computer {
 		},
 		spi.TopDLAttribute{
 			Attribute: "startup",
-			Value:     "sax_init",
+			Value:     "/proj/cypress/scripts/cyinit.sh",
 		},
 	}
 
@@ -148,7 +148,7 @@ func rtrComp(r *addie.Router) spi.Computer {
 		},
 		spi.TopDLAttribute{
 			Attribute: "containers:openvz_template",
-			Value:     "ubuntu-15.04-x86_64",
+			Value:     "ubuntu-14.04-x86_64",
 		},
 		spi.TopDLAttribute{
 			Attribute: "osid",
@@ -156,7 +156,7 @@ func rtrComp(r *addie.Router) spi.Computer {
 		},
 		spi.TopDLAttribute{
 			Attribute: "startup",
-			Value:     "router_init",
+			Value:     "/proj/cypress/scripts/cyinit.sh",
 		},
 	}
 
@@ -170,6 +170,43 @@ func rtrComp(r *addie.Router) spi.Computer {
 			},
 		)
 	}
+
+	return c
+
+}
+
+func dnsComp(name string) spi.Computer {
+
+	var c spi.Computer
+	c.Name = name
+	c.OSs = []spi.OS{spi.OS{Name: "Ubuntu1404-64-STD", Version: "DNS"}}
+	c.Attributes = []spi.TopDLAttribute{
+		spi.TopDLAttribute{
+			Attribute: "type",
+			Value:     "dl380g3",
+		},
+		spi.TopDLAttribute{
+			Attribute: "containers:openvz_template",
+			Value:     "ubuntu-14.04-x86_64",
+		},
+		spi.TopDLAttribute{
+			Attribute: "osid",
+			Value:     "Ubuntu1404-64-STD",
+		},
+		spi.TopDLAttribute{
+			Attribute: "startup",
+			Value:     "/proj/cypress/scripts/cyinit.sh",
+		},
+	}
+
+	c.Interfaces = append(c.Interfaces,
+		spi.Interface{
+			Name:      "ifx0",
+			Substrate: "dnslink", //this gets resolved when the links get added
+			Capacity:  spi.Capacity{100 * 1000, spi.Kind{"max"}},
+			Latency:   spi.Latency{0, spi.Kind{"max"}},
+		},
+	)
 
 	return c
 
@@ -195,6 +232,15 @@ func krySubstrate() spi.Substrate {
 
 	return ks
 
+}
+
+func dnsSubstrate() spi.Substrate {
+	var s spi.Substrate
+	s.Name = "dnslink"
+	s.Capacity = spi.Capacity{float64(100.0) * 1000, spi.Kind{"max"}}
+	s.Latency = spi.Latency{float64(4.0), spi.Kind{"max"}}
+
+	return s
 }
 
 func updateIfxSubstrate(ifxName, ssName string, c *spi.Computer) {
@@ -296,6 +342,8 @@ func DesignTopDL(dsg *addie.Design) spi.Experiment {
 
 	var links []*addie.Link
 
+	firstRouter := true
+
 	for _, e := range dsg.Elements {
 
 		switch e.(type) {
@@ -320,6 +368,10 @@ func DesignTopDL(dsg *addie.Design) spi.Experiment {
 		case addie.Router:
 			rtr := e.(addie.Router)
 			c := rtrComp(&rtr)
+			if firstRouter {
+				firstRouter = false
+				connectToDns(&c)
+			}
 			cMap[rtr.Id] = &c
 			xp.Elements.Elements = append(xp.Elements.Elements, c)
 
@@ -333,6 +385,9 @@ func DesignTopDL(dsg *addie.Design) spi.Experiment {
 	xp.Elements.Elements = append(xp.Elements.Elements, simComp())
 	xp.Substrates = append(xp.Substrates, krySubstrate())
 
+	xp.Elements.Elements = append(xp.Elements.Elements, dnsComp("dns"))
+	xp.Substrates = append(xp.Substrates, dnsSubstrate())
+
 	for _, l := range links {
 		_l := linkSubstrate(l, dsg, &xp, cMap, sMap)
 		if _l != nil {
@@ -341,6 +396,16 @@ func DesignTopDL(dsg *addie.Design) spi.Experiment {
 	}
 
 	return xp
+}
+
+func connectToDns(c *spi.Computer) {
+	c.Interfaces = append(c.Interfaces,
+		spi.Interface{
+			Name:      fmt.Sprintf("ifx%d", len(c.Interfaces)),
+			Substrate: "dnslink",
+			Capacity:  spi.Capacity{100 * 1000, spi.Kind{"max"}},
+			Latency:   spi.Latency{0, spi.Kind{"max"}},
+		})
 }
 
 func CreateDeterXP(user string, dsg *addie.Design) error {
