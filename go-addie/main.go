@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -888,8 +889,104 @@ func runComputerCode(c addie.Computer) {
 
 }
 
+type ConfigData struct {
+	User, XP, Id string
+}
+
+func rsyncIt(user, file, target string) error {
+
+	gopath := os.Getenv("GOPATH")
+	rsyncit := gopath + "/src/github.com/cycps/addie/go-addie/rsync_it.sh"
+	cmdt := []string{rsyncit, user, file, target}
+
+	cmd := exec.Command(rsyncit, cmdt[1:]...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Println(err)
+		log.Println(string(out))
+		return fmt.Errorf("could not rsync router launch cmd to router")
+	}
+
+	return nil
+}
+
+func configRouter(r *addie.Router) error {
+
+	gopath := os.Getenv("GOPATH")
+	tpath := gopath + "/src/github.com/cycps/xptools/routec/quagga_config/do-quagga-config.sh"
+	tps, err := ioutil.ReadFile(tpath)
+
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Could not read template @ %s", tpath)
+	}
+
+	cdata := ConfigData{}
+	cdata.User = user
+	cdata.XP = design.Name
+	cdata.Id = r.Id.String()
+
+	tp, _ := template.New("do-quagga-config.sh").Parse(string(tps))
+	ofn := "/tmp/do-quagga-config.sh"
+	of, _ := os.Create(ofn)
+	tp.Execute(of, cdata)
+	of.Close()
+
+	nodeName := r.Name + "." + user + "-" + design.Name
+
+	err = rsyncIt(user, ofn,
+		nodeName+".cypress:/tmp/cypress/")
+
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("rsyncIt for do-quagga-config.sh failed")
+	}
+	os.Remove(ofn)
+
+	err = rsyncIt(user,
+		"/cypress/"+user+"/"+design.Name+".route/"+r.Id.String()+".rc.json",
+		nodeName+".cypress:/tmp/cypress/")
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("rsyncIt for router config json failed")
+	}
+
+	return nil
+
+}
+
+func configRouters() error {
+	log.Println("syncing router configs")
+	/*
+		cmdt := []string{
+			"scp", "-r", "/cypress/" + user + "/" + design.Name + ".route",
+			user + "@users.isi.deterlab.net:/proj/cypress/exp/" + user + "-" + design.Name + "/"}
+
+		cmd := exec.Command("scp", cmdt[1:]...)
+		err := cmd.Run()
+		if err != nil {
+			log.Println(err)
+			return fmt.Errorf("could not copy router configs to cypress projects dir users")
+		}
+	*/
+
+	for _, e := range design.Elements {
+		switch e.(type) {
+		case addie.Router:
+			r := e.(addie.Router)
+			configRouter(&r)
+		}
+	}
+
+	log.Println("ok")
+	return nil
+
+}
+
 func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("addie running experiment")
+
+	configRouters()
 
 	//launchRouters()
 	//launchSax()
@@ -899,39 +996,42 @@ func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	//## old ##
 	////runSim()
 
-	for _, e := range design.Elements {
-		switch e.(type) {
-		case addie.Computer:
-			c := e.(addie.Computer)
-			args := strings.Split(strings.TrimPrefix(c.SSHC(user, design.Name), "ssh"), " ")
-			args = append(args, []string{"touch", "addieWasHere"}...)
-			log.Printf("%s: %s", c.Name, c.SSHC(user, design.Name))
-			log.Println(args[1:])
-			log.Println(len(args[1:]))
+	/*
 
-			cmd := exec.Command("ssh", args[1:]...)
-			err := cmd.Run()
-			if err != nil {
-				log.Println("addie could not touch " + c.Name)
-				log.Println(err)
+		for _, e := range design.Elements {
+			switch e.(type) {
+			case addie.Computer:
+				c := e.(addie.Computer)
+				args := strings.Split(strings.TrimPrefix(c.SSHC(user, design.Name), "ssh"), " ")
+				args = append(args, []string{"touch", "addieWasHere"}...)
+				log.Printf("%s: %s", c.Name, c.SSHC(user, design.Name))
+				log.Println(args[1:])
+				log.Println(len(args[1:]))
+
+				cmd := exec.Command("ssh", args[1:]...)
+				err := cmd.Run()
+				if err != nil {
+					log.Println("addie could not touch " + c.Name)
+					log.Println(err)
+				}
+
+			case addie.Router:
+				r := e.(addie.Router)
+				log.Printf("%s: %s", r.Name, r.SSHC(user, design.Name))
+			case addie.Sax:
+				s := e.(addie.Sax)
+				log.Printf("%s: %s", s.Name, s.SSHC(user, design.Name))
 			}
-
-		case addie.Router:
-			r := e.(addie.Router)
-			log.Printf("%s: %s", r.Name, r.SSHC(user, design.Name))
-		case addie.Sax:
-			s := e.(addie.Sax)
-			log.Printf("%s: %s", s.Name, s.SSHC(user, design.Name))
 		}
-	}
 
-	for i := 0; i < kryClusterSize; i++ {
+		for i := 0; i < kryClusterSize; i++ {
 
-		ksshc := fmt.Sprintf("ssh -A -t %s@users.isi.deterlab.net ssh -A kry%d.%s-%s.cypress",
-			user, i, user, design.Name)
+			ksshc := fmt.Sprintf("ssh -A -t %s@users.isi.deterlab.net ssh -A kry%d.%s-%s.cypress",
+				user, i, user, design.Name)
 
-		log.Printf("kry%d: %s", i, ksshc)
-	}
+			log.Printf("kry%d: %s", i, ksshc)
+		}
+	*/
 
 	w.Write([]byte("ok"))
 }
