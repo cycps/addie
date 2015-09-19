@@ -14,12 +14,14 @@ import (
 	"github.com/cycps/xptools/routec"
 	"github.com/deter-project/go-spi/spi"
 	"github.com/julienschmidt/httprouter"
+	"github.com/satori/go.uuid"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	osuser "os/user"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -33,6 +35,7 @@ var simSettings addie.SimSettings
 var cypdir = os.ExpandEnv("$HOME/.cypress")
 var user = ""
 var kryClusterSize = 1
+var gopath = os.Getenv("GOPATH")
 
 func main() {
 
@@ -893,7 +896,7 @@ type ConfigData struct {
 	User, XP, Id string
 }
 
-func rsyncIt(user, file, target string) error {
+func syncFile(file, target string) error {
 
 	gopath := os.Getenv("GOPATH")
 	rsyncit := gopath + "/src/github.com/cycps/addie/go-addie/rsync_it.sh"
@@ -904,89 +907,201 @@ func rsyncIt(user, file, target string) error {
 	if err != nil {
 		log.Println(err)
 		log.Println(string(out))
-		return fmt.Errorf("could not rsync router launch cmd to router")
+		return fmt.Errorf("erorr syncing %s", file)
 	}
 
 	return nil
 }
 
-func configRouter(r *addie.Router) error {
+func cypressResource(rel_path string) ([]byte, error) {
 
-	gopath := os.Getenv("GOPATH")
-	tpath := gopath + "/src/github.com/cycps/xptools/routec/quagga_config/do-quagga-config.sh"
-	tps, err := ioutil.ReadFile(tpath)
-
+	abs_path := gopath + "/src/github.com/cycps/" + rel_path
+	bs, err := ioutil.ReadFile(abs_path)
 	if err != nil {
 		log.Println(err)
-		return fmt.Errorf("Could not read template @ %s", tpath)
+		return nil, fmt.Errorf("Could not read cypress resource '%s'", abs_path)
+	}
+	return bs, nil
+}
+
+func runCypressTemplate(rel_path, outfile string, data interface{}) error {
+
+	tps, err := cypressResource(rel_path)
+	if err != nil {
+		return err
 	}
 
-	cdata := ConfigData{}
-	cdata.User = user
-	cdata.XP = design.Name
-	cdata.Id = r.Id.String()
-
-	tp, _ := template.New("do-quagga-config.sh").Parse(string(tps))
-	ofn := "/tmp/do-quagga-config.sh"
-	of, _ := os.Create(ofn)
-	tp.Execute(of, cdata)
+	tp, err := template.New("tmpl").Parse(string(tps))
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Could not parse cypress template '%s'", rel_path)
+	}
+	of, err := os.Create(outfile)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Could not create template output file '%s'", outfile)
+	}
+	err = tp.Execute(of, data)
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Error executing cypress template '%s' with data %v",
+			rel_path, data)
+	}
 	of.Close()
 
-	nodeName := r.Name + "." + user + "-" + design.Name
+	return nil
 
-	err = rsyncIt(user, ofn,
-		nodeName+".cypress:/tmp/cypress/")
+}
 
+func syncTemplate(template_fn, target string, data interface{}) error {
+	out := "/tmp/" + uuid.NewV4().String() + "_" + path.Base(template_fn)
+	err := runCypressTemplate(template_fn, out, data)
+	err = syncFile(out, target)
 	if err != nil {
 		log.Println(err)
-		return fmt.Errorf("rsyncIt for do-quagga-config.sh failed")
+		return fmt.Errorf("sync for do-quagga-config.sh failed")
 	}
-	os.Remove(ofn)
+	os.Remove(out)
+	return nil
+}
 
-	err = rsyncIt(user,
+func syncRouterFiles(r *addie.Router) error {
+	log.Printf("syncing router configuation files for %s...", r.Id)
+
+	cdata := ConfigData{
+		User: user,
+		XP:   design.Name,
+		Id:   r.Id.String(),
+	}
+
+	//sync quagga config script
+	err := syncTemplate(
+		"xptools/routec/quagga_config/do-quagga-config.sh",
+		deterName(r.Id)+":/tmp/cypress/",
+		cdata,
+	)
+	if err != nil {
+		return err
+	}
+
+	//sync router chart
+	err = syncFile(
 		"/cypress/"+user+"/"+design.Name+".route/"+r.Id.String()+".rc.json",
-		nodeName+".cypress:/tmp/cypress/")
+		deterName(r.Id)+":/tmp/cypress/",
+	)
 	if err != nil {
-		log.Println(err)
-		return fmt.Errorf("rsyncIt for router config json failed")
+		return err
 	}
+
+	//sync router node bootstrap script
+	err = syncFile(
+		gopath+"/src/github.com/cycps/xptools/routec/quagga_config/bootstrap.sh",
+		deterName(r.Id)+":/tmp/cypress/",
+	)
+	if err != nil {
+		return err
+	}
+	log.Println("configuration files synced")
+
+	return nil
+}
+
+func deterName(id addie.Id) string {
+
+	return fmt.Sprintf("%s.%s-%s.cypress", id.Name, user, design.Name)
+
+}
+
+func configRouter(r *addie.Router) error {
+
+	err := syncRouterFiles(r)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("bootstrapping %s...", r.Id)
+	err = sshCmd(deterName(r.Id), "/tmp/cypress/bootstrap.sh")
+	if err != nil {
+		return err
+	}
+	log.Println("ok")
 
 	return nil
 
 }
 
 func configRouters() error {
-	log.Println("syncing router configs")
-	/*
-		cmdt := []string{
-			"scp", "-r", "/cypress/" + user + "/" + design.Name + ".route",
-			user + "@users.isi.deterlab.net:/proj/cypress/exp/" + user + "-" + design.Name + "/"}
+	log.Println("configuring routers")
 
-		cmd := exec.Command("scp", cmdt[1:]...)
-		err := cmd.Run()
+	rs := design.Routers()
+	ch := make(chan error, len(rs))
+
+	for _, r := range rs {
+		go func(r *addie.Router) {
+			err := configRouter(r)
+			if err != nil {
+				log.Println(err)
+				err = fmt.Errorf("Error configuring router %s", r.Id)
+			}
+			ch <- err
+		}(r)
+	}
+
+	failed := false
+	for err := range ch {
 		if err != nil {
 			log.Println(err)
-			return fmt.Errorf("could not copy router configs to cypress projects dir users")
-		}
-	*/
-
-	for _, e := range design.Elements {
-		switch e.(type) {
-		case addie.Router:
-			r := e.(addie.Router)
-			configRouter(&r)
+			failed = true
 		}
 	}
 
-	log.Println("ok")
+	if failed {
+		return fmt.Errorf("Failed to configure routers")
+	}
+
+	/*
+		for _, e := range design.Elements {
+			switch e.(type) {
+			case addie.Router:
+				r := e.(addie.Router)
+				go func() {
+					err := configRouter(&r)
+					if err != nil {
+						log.Println(err)
+						log.Printf("Error configuring router %s", r.Id)
+					}
+				}()
+			}
+		}
+	*/
+
+	log.Println("routers configured")
 	return nil
 
+}
+
+func sshCmd(node, rcmd string) error {
+
+	args := []string{"ssh", "-A", "-t", user + "@users.isi.deterlab.net",
+		"ssh", "-A", node, rcmd}
+
+	cmd := exec.Command("ssh", args[1:]...)
+	err := cmd.Run()
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Could not execute ssh command on deter node")
+	}
+
+	return nil
 }
 
 func onRun(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.Println("addie running experiment")
 
-	configRouters()
+	err := configRouters()
+	if err != nil {
+		log.Println(err)
+	}
 
 	//launchRouters()
 	//launchSax()

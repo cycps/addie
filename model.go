@@ -13,7 +13,7 @@ type Id struct {
 	Design string `json:"design"`
 }
 
-func (id *Id) String() string {
+func (id Id) String() string {
 	return id.Name + "." + id.Sys + "." + id.Design
 }
 
@@ -239,6 +239,21 @@ func EmptyDesign(name string) Design {
 	m.Name = name
 	m.Elements = make(map[Id]Identify)
 	return m
+}
+
+func (d *Design) Routers() []*Router {
+
+	var rs []*Router
+
+	for _, e := range d.Elements {
+		switch e.(type) {
+		case Router:
+			r := e.(Router)
+			rs = append(rs, &r)
+		}
+	}
+
+	return rs
 }
 
 //Settings---------------------------------------------------------------------
