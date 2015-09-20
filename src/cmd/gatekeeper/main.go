@@ -110,8 +110,18 @@ func onLogin(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	}
 	//if the cert is empty that means we are already logged in and the existing
 	//cert file should be fine
+	err = os.MkdirAll("/cypress/"+u, 0755)
+	if err != nil {
+		log.Println(err)
+		log.Printf("failed to create user directory for %s", u)
+	}
+
 	if string(cert) != "" {
-		ioutil.WriteFile("/cypress/"+u+"/spi.cert", cert, 0644)
+		err := ioutil.WriteFile("/cypress/"+u+"/spi.cert", cert, 0644)
+		if err != nil {
+			log.Println(err)
+			log.Printf("failed to write user cert for %s", u)
+		}
 	}
 
 	log.Printf("user login success: '%s'", u)

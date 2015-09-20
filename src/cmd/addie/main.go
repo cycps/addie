@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	osuser "os/user"
 	"path"
 	"reflect"
 	"strconv"
@@ -32,7 +31,7 @@ import (
 var design addie.Design
 var userModels = make(map[string]addie.Model)
 var simSettings addie.SimSettings
-var cypdir = os.ExpandEnv("$HOME/.cypress")
+var cypdir = os.ExpandEnv("/cypress")
 var user = ""
 var kryClusterSize = 1
 var gopath = os.Getenv("GOPATH")
@@ -40,7 +39,7 @@ var gopath = os.Getenv("GOPATH")
 func main() {
 
 	if len(os.Args) != 3 {
-		fmt.Fprintf(os.Stderr, "usage: go-addie <user id> <design id>\n")
+		fmt.Fprintf(os.Stderr, "usage: addie <user id> <design id>\n")
 		os.Exit(1)
 	}
 
@@ -1315,8 +1314,8 @@ func onModelIco(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	log.Printf("icon file size: %d", len(content))
 
-	u, _ := osuser.Current()
-	fn := u.HomeDir + "/.cypress/web/ico/" + user + "_" + mdl + ".png"
+	userIcoDir := "/cypress/" + user + "/ico"
+	fn := userIcoDir + "/" + mdl + ".png"
 	m, ok := userModels[mdl]
 	if ok {
 		m.Icon = fn
@@ -1325,7 +1324,11 @@ func onModelIco(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	}
 
 	log.Println("saving icon " + fn)
-	ioutil.WriteFile(fn, content, 0644)
+	err = ioutil.WriteFile(fn, content, 0644)
+	if err != nil {
+		log.Println(err)
+		log.Println("failed to save icon file")
+	}
 
 	//log.Println(r.MultipartForm)
 

@@ -12,8 +12,8 @@ container:
 
 .PHONY: run
 run:
-	docker run -d -p 8081:8081 --hostname=addie --name=addie --link=data --add-host=spi.deterlab.net:206.117.25.50 addie
+	docker run -d -p 8081:8081 --hostname=addie --name=addie --add-host=spi.deterlab.net:206.117.25.50 addie
 
 .PHONY: debug
 debug:
-	docker run -i -t -p 8081:8081 --hostname=addie --name=addie --link=data --add-host=spi.deterlab.net:206.117.25.50 addie || echo "\n"
+	docker run -i -t -p 8081:8081 --hostname=addie --name=addie --add-host=spi.deterlab.net:206.117.25.50 addie || echo "\n"
