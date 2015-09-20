@@ -1,0 +1,17 @@
+;
+; BIND data file for local loopback interface
+;
+$TTL    604800
+@       IN      SOA     dns.{{.Xpname}}.cypress.net admin.cypress.net. (
+                              7         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;       
+; name servers - NS records
+@       IN      NS      ns.{{.Xpname}}.cypress.net.
+
+; name servers - A records
+ns.{{.Xpname}}.cypress.net.           IN      AAAA    {{.Addr}}
+

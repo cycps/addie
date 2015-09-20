@@ -1,0 +1,7 @@
+Private-key-format: v1.3
+Algorithm: 157 (HMAC_MD5)
+Key: {{.Key}}
+Bits: AAA=
+Created: 20150914213330
+Publish: 20150914213330
+Activate: 20150914213330

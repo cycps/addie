@@ -1,0 +1,7 @@
+server ns.{{.Xpname}}.cypress.net
+zone {{.Xpname}}.cypress.net
+update delete {{.FQDN}}. AAAA
+update add {{.FQDN}}. 86400 AAAA {{.Addr}}
+show
+send
+

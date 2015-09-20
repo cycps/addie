@@ -1,0 +1,22 @@
+zone "{{.Xpname}}.cypress.net" {
+        type master;
+        file "/var/cache/bind/zones/db.{{.Xpname}}.cypress.net";
+        allow-transfer { 2001:cc::/32; };
+        update-policy {
+                {{range $c := .Clients}}
+                  grant {{$c.FQDN}}. name {{$c.FQDN}}. AAAA TXT;
+                {{end}}
+        };
+        forwarders {
+          192.168.252.1;
+        };
+        forward only;
+};
+
+logging {
+        channel query.log {
+                file "/var/cache/bind/query.log";
+                severity debug 3;
+        };
+        category queries { query.log; };
+};

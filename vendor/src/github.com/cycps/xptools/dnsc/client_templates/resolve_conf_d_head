@@ -1,0 +1,4 @@
+# This goes in /etc/resolvconf/resolv.conf.d/head
+
+search {{.Xpname}}.cypress.net
+nameserver {{.NSaddr}}

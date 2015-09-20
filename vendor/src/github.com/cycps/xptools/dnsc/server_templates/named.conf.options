@@ -1,0 +1,19 @@
+acl "trusted" {
+        2001:cc::/32;
+};      
+
+options {
+        directory "/var/cache/bind";
+        recursion yes;
+        allow-recursion { trusted; };
+        allow-query { trusted; };
+        allow-query-cache { trusted; };
+        forwarders {
+                192.168.252.1;
+        };
+
+        dnssec-validation auto;
+        auth-nxdomain no;    # conform to RFC1035
+        listen-on-v6 { any; };
+        transfer-source *;
+}; 

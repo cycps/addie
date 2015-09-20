@@ -1,0 +1,36 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/cycps/xptools",
+			"repository": "https://github.com/cycps/xptools",
+			"revision": "af5d3a57718a8adf22d239f423c756d2712a7629",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/deter-project/go-spi/spi",
+			"repository": "https://github.com/deter-project/go-spi",
+			"revision": "9adacb4726eccb64c7dd8b2decae4bd5f33c3c4c",
+			"branch": "master",
+			"path": "/spi"
+		},
+		{
+			"importpath": "github.com/julienschmidt/httprouter",
+			"repository": "https://github.com/julienschmidt/httprouter",
+			"revision": "109e267447e95ad1bb48b758e40dd7453eb7b039",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/lib/pq",
+			"repository": "https://github.com/lib/pq",
+			"revision": "b269bd035a727d6c1081f76e7a239a1b00674c40",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/satori/go.uuid",
+			"repository": "https://github.com/satori/go.uuid",
+			"revision": "08f0718b61e95ddba0ade3346725fe0e4bf28ca6",
+			"branch": "master"
+		}
+	]
+}

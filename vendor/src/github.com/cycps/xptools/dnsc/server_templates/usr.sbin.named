@@ -1,0 +1,2 @@
+/etc/bind/zones/** rw,
+/etc/bind/zones/ rw,
