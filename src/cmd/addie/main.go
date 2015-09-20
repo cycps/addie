@@ -895,13 +895,19 @@ type ConfigData struct {
 	User, XP, Id string
 }
 
+func syncFileTBNode(file, target string) error {
+	return _syncFile(user, file, target, "/cypress/scripts/rsync_it_testbed.sh")
+}
+
 func syncFile(file, target string) error {
+	return _syncFile("root", file, target, "/cypress/scripts/rsync_it.sh")
+}
 
-	gopath := os.Getenv("GOPATH")
-	rsyncit := gopath + "/src/github.com/cycps/addie/go-addie/rsync_it.sh"
-	cmdt := []string{rsyncit, user, file, target}
+func _syncFile(u, file, target, script string) error {
 
-	cmd := exec.Command(rsyncit, cmdt[1:]...)
+	cmdt := []string{script, u, file, target}
+
+	cmd := exec.Command(script, cmdt[1:]...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Println(err)
@@ -952,10 +958,10 @@ func runCypressTemplate(rel_path, outfile string, data interface{}) error {
 
 }
 
-func syncTemplate(template_fn, target string, data interface{}) error {
+func syncTemplateTBNode(template_fn, target string, data interface{}) error {
 	out := "/tmp/" + uuid.NewV4().String() + "_" + path.Base(template_fn)
 	err := runCypressTemplate(template_fn, out, data)
-	err = syncFile(out, target)
+	err = syncFileTBNode(out, target)
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("sync for do-quagga-config.sh failed")
@@ -974,7 +980,7 @@ func syncRouterFiles(r *addie.Router) error {
 	}
 
 	//sync quagga config script
-	err := syncTemplate(
+	err := syncTemplateTBNode(
 		"xptools/routec/quagga_config/do-quagga-config.sh",
 		deterName(r.Id)+":/tmp/cypress/",
 		cdata,
@@ -984,7 +990,7 @@ func syncRouterFiles(r *addie.Router) error {
 	}
 
 	//sync router chart
-	err = syncFile(
+	err = syncFileTBNode(
 		"/cypress/"+user+"/"+design.Name+".route/"+r.Id.String()+".rc.json",
 		deterName(r.Id)+":/tmp/cypress/",
 	)
@@ -993,7 +999,7 @@ func syncRouterFiles(r *addie.Router) error {
 	}
 
 	//sync router node bootstrap script
-	err = syncFile(
+	err = syncFileTBNode(
 		gopath+"/src/github.com/cycps/xptools/routec/quagga_config/bootstrap.sh",
 		deterName(r.Id)+":/tmp/cypress/",
 	)
@@ -1019,7 +1025,7 @@ func configRouter(r *addie.Router) error {
 	}
 
 	log.Printf("bootstrapping %s...", r.Id)
-	err = sshCmd(deterName(r.Id), "/tmp/cypress/bootstrap.sh")
+	err = sshCmdTB(deterName(r.Id), "/tmp/cypress/bootstrap.sh")
 	if err != nil {
 		return err
 	}
@@ -1079,7 +1085,7 @@ func configRouters() error {
 
 }
 
-func sshCmd(node, rcmd string) error {
+func sshCmdTB(node, rcmd string) error {
 
 	args := []string{"ssh", "-A", "-t", user + "@users.isi.deterlab.net",
 		"ssh", "-A", node, rcmd}
@@ -1089,6 +1095,19 @@ func sshCmd(node, rcmd string) error {
 	if err != nil {
 		log.Println(err)
 		return fmt.Errorf("Could not execute ssh command on deter node")
+	}
+
+	return nil
+}
+
+func sshCmd(node, rcmd string) error {
+	args := []string{"ssh", "-o", "StrictHostKeyChecking=no", node, rcmd}
+
+	cmd := exec.Command("ssh", args[1:]...)
+	err := cmd.Run()
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("Could not execute ssh command `%s` on %s", rcmd, node)
 	}
 
 	return nil
@@ -1314,8 +1333,8 @@ func onModelIco(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	log.Printf("icon file size: %d", len(content))
 
-	userIcoDir := "/cypress/" + user + "/ico"
-	fn := userIcoDir + "/" + mdl + ".png"
+	uuid := uuid.NewV4()
+	fn := "/tmp/" + uuid.String() + "_" + mdl + ".png"
 	m, ok := userModels[mdl]
 	if ok {
 		m.Icon = fn
@@ -1328,6 +1347,23 @@ func onModelIco(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	if err != nil {
 		log.Println(err)
 		log.Println("failed to save icon file")
+	}
+
+	err = sshCmd("web", "mkdir -p /cypress/web/ico/"+user)
+	if err != nil {
+		log.Println(err)
+		log.Println("could not create user model icon directory on webserver")
+	}
+
+	err = syncFile(fn, "web:/cypress/web/ico/"+user+"/"+mdl+".png")
+	if err != nil {
+		log.Println(err)
+		log.Println("could not sync model icon to user icon dir on webserver")
+	}
+
+	err = os.Remove(fn)
+	if err != nil {
+		log.Printf("could not remove temporary icon file %s", fn)
 	}
 
 	//log.Println(r.MultipartForm)
