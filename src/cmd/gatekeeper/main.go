@@ -161,6 +161,34 @@ func thisUser(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 }
 
+func launchAddie(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	log.Printf("addie launch requested")
+
+	u := r.URL.Query().Get("user")
+	if u == "" {
+		log.Println("Caller requested addie launch with no user")
+		w.WriteHeader(401)
+		return
+	}
+	d := r.URL.Query().Get("design")
+	if d == "" {
+		log.Println("Caller requested addie launch with no target design")
+		w.WriteHeader(401)
+		return
+	}
+	err := exec.Command("pgrep", "-lfa", fmt.Sprintf("addie %s %s", u, d)).Run()
+	if err == nil {
+		log.Printf("addie is already running for %s-%s, doing nothing", u, d)
+	} else {
+		log.Printf("launching an addie instance for %s", d)
+		cmd := exec.Command("addie", u, d)
+		cmd.Start() //lost muffins?
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	w.WriteHeader(200)
+}
+
 func newXP(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	user, err := getUser(r)
@@ -250,6 +278,7 @@ func main() {
 	router.GET("/thisUser", thisUser)
 	router.POST("/newXP", newXP)
 	router.GET("/myDesigns", myDesigns)
+	router.GET("/launchAddie", launchAddie)
 
 	log.Printf("listening on http://::0:8081")
 	log.Fatal(

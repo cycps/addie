@@ -26,7 +26,7 @@ ADD src/scripts/* /cypress/scripts/
 RUN bash -c "echo '206.117.25.50 spi.deterlab.net' >> /etc/hosts"
 ENV LD_LIBRARY_PATH /usr/local/lib
 
-RUN curl -LO https://github.com/cycps/sim/releases/download/v0.1.alpha.2/CySim-0.1.tar.gz
+RUN curl -sLO https://github.com/cycps/sim/releases/download/v0.1.alpha.2/CySim-0.1.tar.gz
 RUN mkdir sim
 RUN mv CySim-0.1.tar.gz sim/
 RUN cd sim && tar xzf CySim-0.1.tar.gz && cd CySim-0.1 && ./install.sh

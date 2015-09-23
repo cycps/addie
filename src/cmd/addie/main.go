@@ -43,8 +43,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	err := os.MkdirAll("/var/log/addie", 0755)
+	if err != nil {
+		log.Println("could not create log folder")
+		os.Exit(1)
+	}
+	f, err := os.OpenFile("/var/log/addie/"+os.Args[2]+".log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Println("could not open log file")
+		os.Exit(1)
+	}
+	defer f.Close()
+	log.SetOutput(f)
+
 	user = os.Args[1]
-	err := loadSpiCert()
+	err = loadSpiCert()
 	if err != nil {
 		log.Println("could not load spi cert!")
 		os.Exit(1)
@@ -1385,6 +1398,9 @@ func onRawData(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.Write([]byte(data))
 }
 
+//TODO ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//The way to do this is to have 1 addie instance and run (user,design) handler
+//pairs as goroutines
 func listen() {
 
 	router := httprouter.New()
